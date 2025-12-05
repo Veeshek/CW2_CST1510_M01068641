@@ -1,0 +1,3 @@
+Veeshek,$2b$12$iuCLnoRWi8ur0NI1BAkOyeSL2rZWmazQyeLuqZriXloV4480dvlne,admin
+John,$2b$12$Tg9Zfs2pTIigrlLt5ZmvM.OodwE3gKnv7.7qt09B5VrIHFb6t5blC,user
+Mike,$2b$12$y431h24X1M321E9VN1.Ay.Dy4Z5RrNgve9oosJgyKIkVV3KWDTwa.,user
