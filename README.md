@@ -18,8 +18,11 @@ The goal was to understand cloning, committing, pushing and pulling, and how to 
 
 ## Project structure
 test.py
+
 .gitignore
+
 README.md
+
 requirements.txt
 
 ## How to run
@@ -45,11 +48,17 @@ The goal was to learn how real systems store passwords securely and how to valid
 
 ## Project structure
 auth.py
+
 DATA/
+
 users.txt
+
 lockouts.txt
+
 sessions.txt
+
 requirements.txt
+
 README.md
 
 ## How to run
