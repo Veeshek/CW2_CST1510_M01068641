@@ -68,6 +68,48 @@ def init_database_pipeline() -> None:
     print("=== Database ready ===\n")
 
 
+def show_quick_summary() -> None:
+    """
+    Print a short summary of all domains for Week 8.
+    This helps to demonstrate that the database is populated
+    and that basic analytics work for all domains.
+    """
+    print("=== QUICK SUMMARY AFTER PIPELINE ===")
+
+    # Users
+    users = get_all_users()
+    print(f"[Users] Total users in database: {len(users)}")
+
+    # Incidents
+    incidents = get_all_incidents()
+    print(f"[Cyber incidents] Total incidents: {len(incidents)}")
+    sev_rows = count_by_severity()
+    if sev_rows:
+        print("    Incidents per severity:")
+        for severity, total in sev_rows:
+            print(f"      {severity}: {total}")
+
+    # Datasets
+    datasets = get_all_datasets()
+    print(f"[Datasets] Total datasets: {len(datasets)}")
+    owner_rows = count_by_owner()
+    if owner_rows:
+        print("    Datasets per owner:")
+        for owner, total in owner_rows:
+            print(f"      {owner}: {total}")
+
+    # Tickets
+    tickets = get_all_tickets()
+    print(f"[IT tickets] Total tickets: {len(tickets)}")
+    status_rows = count_by_status()
+    if status_rows:
+        print("    Tickets per status:")
+        for status, total in status_rows:
+            print(f"      {status}: {total}")
+
+    print("=== END OF SUMMARY ===\n")
+
+
 # =========================
 #  HELPERS FOR INPUT
 # =========================
@@ -491,9 +533,11 @@ def tickets_menu() -> None:
 
 def main() -> None:
     """
-    Main entry point: runs the pipeline once then opens the CLI menu.
+    Main entry point: runs the pipeline once,
+    prints a quick summary, then opens the CLI menu.
     """
     init_database_pipeline()
+    show_quick_summary()
 
     while True:
         print("\n=== MAIN MENU ===")
