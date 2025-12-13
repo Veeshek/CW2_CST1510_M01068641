@@ -117,31 +117,30 @@ Unauthorized access attempts are blocked and redirected to the login page.
 .
 ├── main.py
 ├── pages/
-│   ├── 01_Login.py
-│   ├── 02_Dashboard.py
-│   ├── 03_Analytics.py
-│   ├── 04_Manage_Data.py
-│   └── 05_Settings.py
+│ ├── 01_Login.py
+│ ├── 02_Dashboard.py
+│ ├── 03_Analytics.py
+│ ├── 04_Manage_Data.py
+│ └── 05_Settings.py
 ├── app/
-│   ├── data/
-│   │   ├── db.py
-│   │   ├── schema.py
-│   │   ├── users.py
-│   │   ├── incidents.py
-│   │   ├── datasets.py
-│   │   └── tickets.py
-│   └── services/
-│       ├── user_service.py
-│       └── csv_loader.py
+│ ├── data/
+│ │ ├── db.py
+│ │ ├── schema.py
+│ │ ├── users.py
+│ │ ├── incidents.py
+│ │ ├── datasets.py
+│ │ └── tickets.py
+│ └── services/
+│ ├── user_service.py
+│ └── csv_loader.py
 ├── DATA/
-│   ├── intelligence_platform.db
-│   ├── cyber_incidents.csv
-│   ├── datasets_metadata.csv
-│   ├── it_tickets.csv
-│   ├── lockouts.txt
-│   ├── sessions.txt
-│   └── users.txt
+│ ├── intelligence_platform.db
+│ ├── cyber_incidents.csv
+│ ├── datasets_metadata.csv
+│ ├── it_tickets.csv
+│ ├── lockouts.txt
+│ ├── sessions.txt
+│ └── users.txt
 ├── requirements.txt
 ├── README.md
 └── .gitignore
-
