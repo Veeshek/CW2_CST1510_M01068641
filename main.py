@@ -1,41 +1,44 @@
+# main.py
 """
-Main router - Multi-Domain Intelligence Platform
-Login direct + sidebar Streamlit hidden
+Main entry point (Week 9 polish).
+
+Goal:
+- If NOT logged in => redirect to Login automatically
+- If logged in => redirect to Dashboard (main menu after login)
 """
+
 import streamlit as st
+import sys
+from pathlib import Path
+
+# Allow imports from project root
+sys.path.insert(0, str(Path(__file__).parent))
+
+from app.ui import inject_global_css
 
 st.set_page_config(
     page_title="Intelligence Platform",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
 
-# Global CSS (hide multipage sidebar + hamburger + reduce padding)
-st.markdown("""
-<style>
-/* Hide multipage navigation */
-[data-testid="stSidebarNav"] {display: none !important;}
+# Apply global CSS for the whole app
+inject_global_css()
 
-/* Hide entire sidebar */
-section[data-testid="stSidebar"] {display: none !important;}
-
-/* Hide the hamburger / collapsed control */
-[data-testid="collapsedControl"] {display: none !important;}
-
-/* Reduce top padding */
-.block-container {padding-top: 1.6rem !important; padding-bottom: 2.2rem !important;}
-</style>
-""", unsafe_allow_html=True)
-
-# Ensure session state keys exist
+# Initialize session state (auth)
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+
 if "user_info" not in st.session_state:
     st.session_state.user_info = None
 
-# Route user
+# -------------------------------
+# Redirect logic (important!)
+# -------------------------------
+# If not logged in: always go to Login page first
 if not st.session_state.logged_in:
     st.switch_page("pages/01_Login.py")
-else:
-    st.switch_page("pages/02_Dashboard.py")
+
+# If logged in: send user to the main “menu” page (Dashboard)
+st.switch_page("pages/02_Dashboard.py")

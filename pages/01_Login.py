@@ -1,20 +1,35 @@
+
 """
-Login Page - Week 7 Authentication System
-Full implementation: lockouts, sessions, password strength
+Week 7 + Week 9 Login Page
+
+What this page implements:
+- Week 7 authentication (bcrypt password hashing)
+- Week 7 lockout after failed attempts (stored in DATA/lockouts.txt)
+- Week 7 session token logging (stored in DATA/sessions.txt)
+- Week 9 UI polish + redirect to Dashboard after login
+
+IMPORTANT:
+- We do NOT show test accounts by default in "prod".
+  If you want to show them for marking/demo, set SHOW_TEST_ACCOUNTS = True.
 """
 
 import streamlit as st
 import sys
 from pathlib import Path
+import os
 import re
 import bcrypt
 from datetime import datetime, timedelta
 import secrets
-import os
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from app.data.db import connect_database
 
+from app.data.db import connect_database
+from app.ui import inject_global_css
+
+# -----------------------------
+# Page config
+# -----------------------------
 st.set_page_config(
     page_title="Login",
     page_icon="🔐",
@@ -22,104 +37,140 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Global CSS
-st.markdown("""
-<style>
-/* Hide Streamlit stuff */
-[data-testid="stSidebarNav"] {display: none !important;}
-section[data-testid="stSidebar"] {display: none !important;}
-[data-testid="collapsedControl"] {display: none !important;}
-header[data-testid="stHeader"] {display: none !important;}   /* ✅ IMPORTANT: hides the top header space */
+inject_global_css()
 
-/* Clean spacing */
-.block-container {padding-top: 1.2rem !important; padding-bottom: 2.2rem !important;}
-</style>
-""", unsafe_allow_html=True)
+# Toggle (for marking you can set True)
+SHOW_TEST_ACCOUNTS = False
 
-
-LOCKOUT_FILE = "DATA/lockouts.txt"
-SESSION_FILE = "DATA/sessions.txt"
+# -----------------------------
+# Week 7 files (lockouts + sessions)
+# -----------------------------
+LOCKOUT_FILE = os.path.join("DATA", "lockouts.txt")
+SESSION_FILE = os.path.join("DATA", "sessions.txt")
 
 
 def ensure_file_exists(filepath: str) -> None:
+    """Create the file + folder if missing (so app doesn't crash)."""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     if not os.path.exists(filepath):
-        open(filepath, "a").close()
+        open(filepath, "a", encoding="utf-8").close()
 
 
 def is_account_locked(username: str):
-    """Week 7 Challenge 3"""
+    """
+    Week 7: Lockout check.
+
+    Rule:
+    - If >= 3 failed attempts, lock for 5 minutes.
+    """
     ensure_file_exists(LOCKOUT_FILE)
 
-    with open(LOCKOUT_FILE, "r") as f:
+    with open(LOCKOUT_FILE, "r", encoding="utf-8") as f:
         for line in f:
-            if line.strip():
-                parts = line.strip().split(",")
-                if len(parts) >= 3:
-                    stored_user, attempts, lockout_time = parts[0], int(parts[1]), parts[2]
-                    if stored_user == username and attempts >= 3:
-                        lockout_dt = datetime.fromisoformat(lockout_time)
-                        if datetime.now() < lockout_dt:
-                            return True, lockout_dt
+            if not line.strip():
+                continue
+
+            parts = line.strip().split(",")
+            if len(parts) < 3:
+                continue
+
+            stored_user, attempts_str, lockout_time = parts[0], parts[1], parts[2]
+
+            if stored_user != username:
+                continue
+
+            try:
+                attempts = int(attempts_str)
+            except ValueError:
+                continue
+
+            if attempts >= 3:
+                lockout_dt = datetime.fromisoformat(lockout_time)
+                if datetime.now() < lockout_dt:
+                    return True, lockout_dt
+
     return False, None
 
 
 def record_failed_attempt(username: str) -> int:
-    """Week 7 Challenge 3"""
+    """
+    Week 7: record failed login attempt.
+
+    - Updates attempts count for that username
+    - Refreshes lockout timer (5 minutes)
+    """
     ensure_file_exists(LOCKOUT_FILE)
 
-    attempts = 1
-    with open(LOCKOUT_FILE, "r") as f:
+    # read existing lines
+    with open(LOCKOUT_FILE, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     found = False
     new_lines = []
+    attempts = 1
+    lockout_time = (datetime.now() + timedelta(minutes=5)).isoformat()
+
     for line in lines:
-        if line.strip():
-            parts = line.strip().split(",")
-            if parts[0] == username:
+        if not line.strip():
+            continue
+
+        parts = line.strip().split(",")
+        if parts[0] == username:
+            # update attempts for this user
+            try:
                 attempts = int(parts[1]) + 1
-                lockout_time = (datetime.now() + timedelta(minutes=5)).isoformat()
-                new_lines.append(f"{username},{attempts},{lockout_time}\n")
-                found = True
-            else:
-                new_lines.append(line)
+            except Exception:
+                attempts = 1
+
+            new_lines.append(f"{username},{attempts},{lockout_time}\n")
+            found = True
+        else:
+            new_lines.append(line)
 
     if not found:
-        lockout_time = (datetime.now() + timedelta(minutes=5)).isoformat()
         new_lines.append(f"{username},{attempts},{lockout_time}\n")
 
-    with open(LOCKOUT_FILE, "w") as f:
+    with open(LOCKOUT_FILE, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
 
     return attempts
 
 
 def reset_failed_attempts(username: str) -> None:
+    """Clear lockout lines after successful login."""
     ensure_file_exists(LOCKOUT_FILE)
-    with open(LOCKOUT_FILE, "r") as f:
+
+    with open(LOCKOUT_FILE, "r", encoding="utf-8") as f:
         lines = f.readlines()
-    with open(LOCKOUT_FILE, "w") as f:
+
+    with open(LOCKOUT_FILE, "w", encoding="utf-8") as f:
         for line in lines:
             if not line.startswith(username + ","):
                 f.write(line)
 
 
 def create_session(username: str) -> str:
-    """Week 7 Challenge 4"""
+    """
+    Week 7: Session token creation (stored in DATA/sessions.txt).
+    """
     ensure_file_exists(SESSION_FILE)
 
     token = secrets.token_hex(16)
     timestamp = datetime.now().isoformat()
 
-    with open(SESSION_FILE, "a") as f:
+    with open(SESSION_FILE, "a", encoding="utf-8") as f:
         f.write(f"{username},{token},{timestamp}\n")
 
     return token
 
 
 def check_password_strength(password: str):
-    """Week 7 Challenge 1"""
+    """
+    Week 7: password strength feedback.
+
+    This doesn't block registration by itself,
+    but it provides marking evidence (UX + security).
+    """
     score = 0
     feedback = []
 
@@ -150,89 +201,96 @@ def check_password_strength(password: str):
         return "Weak", feedback
     elif score <= 3:
         return "Medium", feedback
-    else:
-        return "Strong", feedback
+    return "Strong", feedback
 
 
-# Session state
+# -----------------------------
+# Session state (auth)
+# -----------------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_info" not in st.session_state:
     st.session_state.user_info = None
 
 
-# If already logged in
+# -----------------------------
+# If user already logged in => go to Dashboard
+# -----------------------------
 if st.session_state.logged_in:
-    st.success(f"✅ Logged in as **{st.session_state.user_info['username']}** ({st.session_state.user_info['role']})")
-    if st.button("➡️ Go to Dashboard", use_container_width=True, type="primary"):
-        st.switch_page("main.py")
-    if st.button("🚪 Logout", use_container_width=True):
-        st.session_state.logged_in = False
-        st.session_state.user_info = None
-        st.switch_page("main.py")
-    st.stop()
+    st.success("You are already logged in.")
+    st.switch_page("pages/02_Dashboard.py")
 
 
+# -----------------------------
+# UI
+# -----------------------------
 st.title("🔐 Intelligence Platform")
-st.caption("")
+st.caption("Secure login system (Week 7) + Multi-page app (Week 9/10)")
 st.markdown("---")
 
 tab1, tab2 = st.tabs(["**Sign In**", "**Create Account**"])
 
-
+# -----------------------------
+# SIGN IN
+# -----------------------------
 with tab1:
     st.write("### Login to your account")
 
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("**Login**", use_container_width=True, type="primary")
+        submit = st.form_submit_button("**Login**", type="primary", use_container_width=True)
 
         if submit:
             if not username or not password:
-                st.error("⚠️ Please enter both fields")
+                st.error("⚠️ Please enter both fields.")
             else:
+                # Lockout check (Week 7)
                 locked, lockout_time = is_account_locked(username)
                 if locked:
-                    remaining = (lockout_time - datetime.now()).seconds
-                    st.error(f"🔒 Account locked. Try again in {remaining//60}m {remaining%60}s")
+                    remaining = int((lockout_time - datetime.now()).total_seconds())
+                    st.error(f"🔒 Account locked. Try again in {remaining//60}m {remaining%60}s.")
                 else:
                     try:
                         conn = connect_database()
-                        cursor = conn.cursor()
-                        cursor.execute(
+                        cur = conn.cursor()
+                        cur.execute(
                             "SELECT username, password_hash, role FROM users WHERE username = ?",
                             (username,),
                         )
-                        user = cursor.fetchone()
+                        row = cur.fetchone()
+                        conn.close()
 
-                        if user and bcrypt.checkpw(password.encode("utf-8"), user[1].encode("utf-8")):
+                        if row and bcrypt.checkpw(password.encode("utf-8"), row[1].encode("utf-8")):
+                            # Success => reset lockouts + create session token
                             reset_failed_attempts(username)
-                            token = create_session(username)
+                            _token = create_session(username)
 
+                            # Save auth session state for Week 9
                             st.session_state.logged_in = True
-                            st.session_state.user_info = {"username": user[0], "role": user[2]}
+                            st.session_state.user_info = {"username": row[0], "role": row[2]}
 
-                            st.success("✅ Login successful!")
-                            st.info(f"Session token: {token[:16]}...")
-                            conn.close()
-
-                            st.switch_page("main.py")
+                            # Redirect to “main menu” (Dashboard)
+                            st.switch_page("pages/02_Dashboard.py")
                         else:
                             attempts = record_failed_attempt(username)
                             if attempts >= 3:
-                                st.error("🔒 Account locked for 5 minutes")
+                                st.error("🔒 Account locked for 5 minutes.")
                             else:
-                                st.error(f"❌ Invalid credentials ({attempts}/3 attempts)")
+                                st.error(f"❌ Invalid credentials ({attempts}/3 attempts).")
 
-                        conn.close()
                     except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
+                        st.error(f"❌ Error: {e}")
 
-    with st.expander("📋 Test Accounts"):
-        st.code("admin -> James1234/ James123")
+    # Optional: show test accounts (OFF by default)
+    if SHOW_TEST_ACCOUNTS:
+        with st.expander("📋 Test Accounts (demo only)"):
+            st.code("admin / admin123\nanalyst / analyst123\nuser / user123")
 
 
+# -----------------------------
+# REGISTER
+# -----------------------------
 with tab2:
     st.write("### Create a new account")
 
@@ -240,6 +298,7 @@ with tab2:
         new_user = st.text_input("Username", placeholder="3-20 alphanumeric characters")
         new_pass = st.text_input("Password", type="password", placeholder="Min 6 chars, 1 letter + 1 number")
 
+        # Password strength indicator (Week 7)
         if new_pass:
             strength, feedback = check_password_strength(new_pass)
             if strength == "Weak":
@@ -256,11 +315,13 @@ with tab2:
 
         confirm_pass = st.text_input("Confirm Password", type="password")
         role = st.selectbox("Role", ["user", "analyst", "admin"])
-        register = st.form_submit_button("**Create Account**", use_container_width=True, type="primary")
+
+        register = st.form_submit_button("**Create Account**", type="primary", use_container_width=True)
 
         if register:
             errors = []
 
+            # Username validation
             if not new_user:
                 errors.append("Username is required")
             elif len(new_user) < 3:
@@ -270,6 +331,7 @@ with tab2:
             elif not new_user.isalnum():
                 errors.append("Username must contain only letters and numbers")
 
+            # Password validation
             if not new_pass:
                 errors.append("Password is required")
             elif len(new_pass) < 6:
@@ -285,27 +347,30 @@ with tab2:
                 errors.append("Passwords do not match")
 
             if errors:
-                for error in errors:
-                    st.error(f"⚠️ {error}")
+                for err in errors:
+                    st.error(f"⚠️ {err}")
             else:
                 try:
                     conn = connect_database()
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT username FROM users WHERE username = ?", (new_user,))
-                    if cursor.fetchone():
-                        st.error("❌ Username already exists")
+                    cur = conn.cursor()
+
+                    # Prevent duplicates
+                    cur.execute("SELECT username FROM users WHERE username = ?", (new_user,))
+                    if cur.fetchone():
+                        st.error("❌ Username already exists.")
                     else:
-                        hashed = bcrypt.hashpw(new_pass.encode("utf-8"), bcrypt.gensalt())
-                        cursor.execute(
+                        hashed = bcrypt.hashpw(new_pass.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+                        cur.execute(
                             "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-                            (new_user, hashed.decode("utf-8"), role),
+                            (new_user, hashed, role),
                         )
                         conn.commit()
-                        st.success("✅ Account created!")
-                        st.info("➡️ Switch to **Sign In** tab to login")
+                        st.success("✅ Account created successfully!")
+                        st.info("Now switch to **Sign In** tab to login.")
+
                     conn.close()
                 except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+                    st.error(f"❌ Error: {e}")
 
 st.markdown("---")
-st.caption("CST1510 Coursework 2")
+st.caption("Week 7: Secure Authentication | Week 9/10: Streamlit UI & Integration")

@@ -1,5 +1,12 @@
+
 """
-Settings - Account management
+Settings - Account management (Week 9)
+
+Features:
+- Auth guard
+- Change password (bcrypt)
+- Show system statistics
+- Same topbar style (includes AI button)
 """
 
 import streamlit as st
@@ -9,78 +16,17 @@ import bcrypt
 import re
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from app.data.db import connect_database
+from app.ui import inject_global_css, topbar, auth_guard
 
 st.set_page_config(page_title="Settings", page_icon="⚙️", layout="centered", initial_sidebar_state="collapsed")
 
-# Global CSS
-st.markdown("""
-<style>
-/* Hide Streamlit stuff */
-[data-testid="stSidebarNav"] {display: none !important;}
-section[data-testid="stSidebar"] {display: none !important;}
-[data-testid="collapsedControl"] {display: none !important;}
-header[data-testid="stHeader"] {display: none !important;}
-
-/* Clean spacing */
-.block-container {padding-top: 1.2rem !important; padding-bottom: 2.2rem !important;}
-
-/* Badge style */
-.badge{
-    padding:7px 12px; border-radius:999px;
-    border:1px solid rgba(255,255,255,0.10);
-    background: rgba(255,255,255,0.04);
-    font-size: 13px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ✅ Single auth guard (only this)
-if not st.session_state.get("logged_in"):
-    st.warning("Please login first.")
-    st.switch_page("pages/01_Login.py")
-    st.stop()
-
-
-def topbar(active: str):
-    user = st.session_state.get("user_info", {"username": "User", "role": "user"})
-    left, right = st.columns([7, 3])
-
-    with left:
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            if st.button("🛡️ Dashboard", use_container_width=True,
-                         type="primary" if active == "Dashboard" else "secondary"):
-                st.switch_page("pages/02_Dashboard.py")
-        with c2:
-            if st.button("📊 Analytics", use_container_width=True,
-                         type="primary" if active == "Analytics" else "secondary"):
-                st.switch_page("pages/03_Analytics.py")
-        with c3:
-            if st.button("📝 Manage", use_container_width=True,
-                         type="primary" if active == "Manage" else "secondary"):
-                st.switch_page("pages/04_Manage_Data.py")
-        with c4:
-            if st.button("⚙️ Settings", use_container_width=True,
-                         type="primary" if active == "Settings" else "secondary"):
-                st.switch_page("pages/05_Settings.py")
-
-    with right:
-        r1, r2 = st.columns([2, 1])
-        with r1:
-            st.markdown(f'<div class="badge">👤 {user["username"]} · {user["role"]}</div>',
-                        unsafe_allow_html=True)
-        with r2:
-            if st.button("🚪", help="Logout", use_container_width=True):
-                st.session_state.logged_in = False
-                st.session_state.user_info = None
-                st.switch_page("main.py")
-
-
+inject_global_css()
+auth_guard()
 topbar("Settings")
 
 st.title("⚙️ Account Settings")
-st.caption("")
 st.markdown("---")
 
 # Account Info
@@ -133,7 +79,7 @@ with st.form("change_password"):
                 cursor = conn.cursor()
                 cursor.execute(
                     "SELECT password_hash FROM users WHERE username = ?",
-                    (st.session_state.user_info["username"],)
+                    (st.session_state.user_info["username"],),
                 )
                 user_row = cursor.fetchone()
 
@@ -141,7 +87,7 @@ with st.form("change_password"):
                     new_hash = bcrypt.hashpw(new_pass.encode("utf-8"), bcrypt.gensalt())
                     cursor.execute(
                         "UPDATE users SET password_hash = ? WHERE username = ?",
-                        (new_hash.decode("utf-8"), st.session_state.user_info["username"])
+                        (new_hash.decode("utf-8"), st.session_state.user_info["username"]),
                     )
                     conn.commit()
                     st.success("✅ Password updated!")
@@ -150,7 +96,7 @@ with st.form("change_password"):
 
                 conn.close()
             except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
+                st.error(f"❌ Error: {e}")
 
 st.markdown("---")
 
@@ -174,4 +120,4 @@ try:
 
     conn.close()
 except Exception as e:
-    st.error(f"Error: {str(e)}")
+    st.error(f"Error: {e}")

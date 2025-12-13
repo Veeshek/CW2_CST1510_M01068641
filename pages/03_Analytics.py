@@ -1,8 +1,12 @@
+
 """
-Analytics - Week 9 
-- Single auth guard + st.stop()
-- RBAC: only admin/analyst can access Analytics
-- Clean topbar + logout
+Analytics (Week 9)
+
+Features:
+- Auth guard + st.stop()
+- RBAC: only admin/analyst can access
+- Data Science analytics + IT Ops analytics
+- Uses same topbar style (includes AI button)
 """
 
 import streamlit as st
@@ -12,74 +16,21 @@ import pandas as pd
 import plotly.express as px
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from app.data.db import connect_database
+from app.ui import inject_global_css, topbar, auth_guard
 
 st.set_page_config(
     page_title="Analytics",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
 
-# ---------------- CSS ----------------
-st.markdown("""
-<style>
-[data-testid="stSidebarNav"] {display: none !important;}
-section[data-testid="stSidebar"] {display: none !important;}
-[data-testid="collapsedControl"] {display: none !important;}
-header[data-testid="stHeader"] {display: none !important;}
-.block-container {padding-top: 1.2rem !important; padding-bottom: 2.2rem !important;}
+inject_global_css()
+auth_guard()
 
-.badge{
-    padding:7px 12px; border-radius:999px;
-    border:1px solid rgba(255,255,255,0.10);
-    background: rgba(255,255,255,0.04);
-    font-size: 13px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------- TOPBAR ----------------
-def topbar(active: str):
-    user = st.session_state.get("user_info", {"username": "User", "role": "user"})
-    left, right = st.columns([7, 3])
-
-    with left:
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            if st.button("🛡️ Dashboard", use_container_width=True,
-                        type="primary" if active == "Dashboard" else "secondary"):
-                st.switch_page("pages/02_Dashboard.py")
-        with c2:
-            if st.button("📊 Analytics", use_container_width=True,
-                        type="primary" if active == "Analytics" else "secondary"):
-                st.switch_page("pages/03_Analytics.py")
-        with c3:
-            if st.button("📝 Manage", use_container_width=True,
-                        type="primary" if active == "Manage" else "secondary"):
-                st.switch_page("pages/04_Manage_Data.py")
-        with c4:
-            if st.button("⚙️ Settings", use_container_width=True,
-                        type="primary" if active == "Settings" else "secondary"):
-                st.switch_page("pages/05_Settings.py")
-
-    with right:
-        r1, r2 = st.columns([2, 1])
-        with r1:
-            st.markdown(f'<div class="badge">👤 {user["username"]} · {user["role"]}</div>', unsafe_allow_html=True)
-        with r2:
-            if st.button("🚪", help="Logout", use_container_width=True):
-                st.session_state.logged_in = False
-                st.session_state.user_info = None
-                st.switch_page("main.py")
-
-# ---------------- AUTH GUARD (single + stop) ----------------
-if not st.session_state.get("logged_in"):
-    st.warning("⚠️ Please login first")
-    st.switch_page("pages/01_Login.py")
-    st.stop()
-
-# ---------------- RBAC (max points) ----------------
+# RBAC (Week 9 max points)
 role = st.session_state.user_info.get("role", "user")
 if role not in ["admin", "analyst"]:
     st.error("⛔ You do not have permission to access Analytics.")
@@ -88,7 +39,6 @@ if role not in ["admin", "analyst"]:
 topbar("Analytics")
 
 st.title("📊 Analytics Center")
-st.caption("")
 st.markdown("---")
 
 domain = st.radio("**Select Domain:**", ["📊 Data Science", "⚙️ IT Operations"], horizontal=True)
@@ -106,6 +56,7 @@ try:
         with tab1:
             st.write("### Dataset Storage Analysis")
             if len(df) > 0:
+                # A simple measure of size: rows * columns
                 df["cells"] = df["rows"] * df["columns"]
                 df = df.sort_values("cells", ascending=False)
 
@@ -223,6 +174,7 @@ try:
     conn.close()
 
 except Exception as e:
-    st.error(f"Error: {str(e)}")
+    st.error(f"Error: {e}")
     import traceback
+
     st.code(traceback.format_exc())

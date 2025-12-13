@@ -1,149 +1,176 @@
 # CST1510 – Coursework 2  
 ## Multi-Domain Intelligence Platform
 
+**Module:** CST1510 – Programming for Data Communication and Networks  
 **Student Name:** Veeshek Bhagoban  
 **Student ID:** M01068641  
-**Module:** CST1510 – Programming for Data Communication and Networks  
 **Institution:** Middlesex University Mauritius  
+**Assessment:** Coursework 2  
 
 ---
 
-## 📌 Overview
+## 📌 Project Overview
 
-This repository contains the submission for **Coursework 2** of the module  
-**CST1510 – Programming for Data Communication and Networks**.
+This project is a **Multi-Domain Intelligence Platform** developed using **Python, Streamlit, SQLite, and Pandas**.  
+It integrates multiple concepts taught throughout the module, including:
 
-The project implements a **Multi-Domain Intelligence Platform** developed using  
-**Python**, **Streamlit**, **SQLite**, and **Pandas**.
+- Secure user authentication
+- Database design and CRUD operations
+- Data analytics and visualisation
+- Multi-page Streamlit applications
+- AI-assisted decision support (Week 10)
 
-The coursework consolidates concepts introduced progressively throughout the module,
-including secure authentication, database abstraction, CRUD operations, analytics,
-and role-based access control.
+The system supports **three operational domains**:
+- 🛡️ Cybersecurity  
+- 📊 Data Science  
+- ⚙️ IT Operations  
+
+Each domain has its own datasets, analytics, and management interfaces.
 
 ---
 
-## 🗓️ Week 7 – Secure Authentication System
+## 🗂️ Project Structure
 
-During this phase, a complete authentication system was implemented.
+├── main.py
+├── pages/
+│ ├── 01_Login.py
+│ ├── 02_Dashboard.py
+│ ├── 03_Analytics.py
+│ ├── 04_Manage_Data.py
+│ ├── 05_Settings.py
+│ └── 06_AI_Assistant.py
+├── app/
+│ ├── data/
+│ │ ├── db.py
+│ │ ├── schema.py
+│ │ ├── users.py
+│ │ ├── incidents.py
+│ │ ├── datasets.py
+│ │ └── tickets.py
+│ └── services/
+│ ├── user_service.py
+│ ├── csv_loader.py
+│ └── ai_assistant.py
+├── DATA/
+│ ├── intelligence_platform.db
+│ ├── cyber_incidents.csv
+│ ├── datasets_metadata.csv
+│ ├── it_tickets.csv
+│ ├── lockouts.txt
+│ ├── sessions.txt
+│ └── users.txt
+├── requirements.txt
+├── .gitignore
+└── README.md
 
-### Features
+---
+
+## 🗓️ Week 6 – Git & Project Setup
+
+- GitHub repository created and maintained
+- Clear project structure with separation of concerns
+- `.gitignore` configured to exclude secrets and unnecessary files
+- Incremental development using Git commits
+
+---
+
+## 🗓️ Week 7 – Authentication & Security
+
+A secure authentication system was implemented with the following features:
+
 - User registration and login
 - Password hashing using **bcrypt**
 - Password strength validation
 - Account lockout after multiple failed login attempts
-- Session handling using Streamlit `session_state`
-- Persistent storage of users, sessions, and lockout records
+- Session management using `st.session_state`
+- Role-based access control (user / analyst / admin)
+- Protection against unauthorized page access
 
-### Security
-- Protected pages are inaccessible without authentication
-- Sessions are invalidated on logout
-- Credentials are never stored in plain text
+All authentication logic is isolated from UI components to improve maintainability and security.
 
 ---
 
-## 🗓️ Week 8 – Data Layer & CRUD Operations
+## 🗓️ Week 8 – Database Design & CRUD Operations
 
-This phase focused on database design, abstraction, and full CRUD functionality.
+The platform uses **SQLite** as its database backend.
 
-### Database Architecture
-- SQLite database with a structured schema
+### Key features:
 - Centralised database connection (`db.py`)
-- Schema initialisation handled via `schema.py`
-- Initial data loaded from CSV files
-
-### Data Abstraction
-- Clear separation between UI logic and database access
-- All SQL queries encapsulated in dedicated data modules (`app/data`)
-- UI pages never execute raw SQL directly
-
-### CRUD Functionality (Create, Read, Update, Delete)
-
-Full CRUD operations were implemented for **all application domains**:
-
-#### 🛡️ Cybersecurity – Incidents
-- **Create:** add new cybersecurity incidents
-- **Read:** list and filter incidents
-- **Update:** modify severity, category, status, and description
-- **Delete:** remove incidents (admin only)
-
-#### 📊 Data Science – Dataset Metadata
-- **Create:** add dataset metadata records
-- **Read:** display dataset information and statistics
-- **Update:** modify dataset size and ownership details
-- **Delete:** remove dataset entries
-
-#### ⚙️ IT Operations – Support Tickets
-- **Create:** create IT support tickets
-- **Read:** view tickets and status summaries
-- **Update:** change ticket priority, status, and assignment
-- **Delete:** remove tickets (admin only)
-
-Role-based access control is enforced for all write operations.
+- Structured schema creation (`schema.py`)
+- Domain-specific data modules:
+  - `users.py`
+  - `incidents.py`
+  - `datasets.py`
+  - `tickets.py`
+- Full **CRUD functionality** (Create, Read, Update, Delete)
+- Initial data loading from CSV files
+- Clean separation between database logic and Streamlit UI
 
 ---
 
-## 🗓️ Week 9 – Multi-Page Application, RBAC & Analytics
+## 🗓️ Week 9 – Data Analytics & Visualisation
 
-The final phase focused on application structure, security, and analytics.
+Interactive dashboards were created using **Pandas** and **Plotly**.
 
-### Application Structure
+### Implemented features:
 - Multi-page Streamlit application
-- Custom top navigation bar
-- Default Streamlit sidebar hidden
-- Consistent layout and styling across all pages
-
-### Role-Based Access Control (RBAC)
-
-User access is controlled according to assigned roles:
-
-- **User:** limited access (dashboard and settings)
-- **Analyst:** access to dashboards and analytics (read-only data)
-- **Admin:** full access including CRUD operations
-
-Unauthorized access attempts are blocked and redirected to the login page.
-
-### Analytics & Visualisation
-- Cybersecurity dashboards with interactive charts
-- Phishing incident trend analysis
-- Dataset storage and archiving insights
-- IT ticket status, priority, and staff performance analytics
-- Key metrics displayed using `st.metric`
-- CSV export functionality for incident data
+- Interactive filters (severity, category, status)
+- Key performance metrics using `st.metric`
+- Data visualisations:
+  - Line charts (incident trends)
+  - Bar charts (severity and status)
+  - Pie charts (category distribution)
+- CSV export functionality
+- Domain-specific insights and interpretations
+- Unified and consistent UI across all pages
 
 ---
 
-## 📂 Project Structure
+## 🗓️ Week 10 – AI Integration
 
-<pre>
-.
-├── main.py
-├── pages/
-│   ├── 01_Login.py
-│   ├── 02_Dashboard.py
-│   ├── 03_Analytics.py
-│   ├── 04_Manage_Data.py
-│   └── 05_Settings.py
-├── app/
-│   ├── data/
-│   │   ├── db.py
-│   │   ├── schema.py
-│   │   ├── users.py
-│   │   ├── incidents.py
-│   │   ├── datasets.py
-│   │   └── tickets.py
-│   └── services/
-│       ├── user_service.py
-│       └── csv_loader.py
-├── DATA/
-│   ├── intelligence_platform.db
-│   ├── cyber_incidents.csv
-│   ├── datasets_metadata.csv
-│   ├── it_tickets.csv
-│   ├── lockouts.txt
-│   ├── sessions.txt
-│   └── users.txt
-├── requirements.txt
-├── README.md
-└── .gitignore
-</pre>
+An **AI Assistant** was integrated to support decision-making across all domains.
 
+### AI Features:
+- Integration with the **OpenAI API**
+- Secure API key handling via `secrets.toml`
+- Domain-specific system prompts:
+  - Cybersecurity analysis
+  - Data quality and analytics suggestions
+  - IT ticket prioritisation and SLA recommendations
+- Streamlit chat interface with:
+  - Conversation history
+  - Streaming responses
+  - Clear chat functionality
+- Optional database context injection:
+  - Incidents
+  - Datasets
+  - IT tickets
+- AI integration directly embedded into the Cybersecurity Dashboard
+
+### Important Note:
+> A valid OpenAI API key is required to generate live AI responses.  
+> If no key is provided, the AI interface, integration logic, and error handling remain fully functional for assessment purposes.
+
+---
+
+## 🔐 Security & Best Practices
+
+- No API keys or secrets are hardcoded
+- Sensitive files are excluded via `.gitignore`
+- Graceful error handling throughout the application
+- Modular and maintainable codebase
+- Clear inline comments for academic clarity
+
+---
+
+## ▶️ How to Run the Project
+
+```bash
+# Activate virtual environment
+.\.venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the application
+streamlit run main.py

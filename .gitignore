@@ -34,3 +34,5 @@ DATA/intelligence_platform.db
 DATA/users.txt
 DATA/sessions.txt
 DATA/lockouts.txt
+# Streamlit secrets (never commit)
+.streamlit/secrets.toml

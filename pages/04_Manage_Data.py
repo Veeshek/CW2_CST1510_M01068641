@@ -1,9 +1,13 @@
+
 """
-Manage Data - Week 9 MAX POINTS
-- Auth guard + st.stop()
-- RBAC: admin full CRUD, analyst read-only, user read-only
-- Uses data-layer functions (no SQL in UI)
-- Cache for fast loads + clear cache after writes
+Manage Data (Week 9)
+
+Key marking points:
+- Auth guard
+- RBAC: admin full CRUD, analyst/user read-only
+- Uses data-layer functions (no raw SQL in UI)
+- Cache for performance + clear cache after updates
+- Same UI style as other pages (topbar includes AI)
 """
 
 import streamlit as st
@@ -14,133 +18,88 @@ from datetime import datetime, date
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from app.ui import inject_global_css, topbar, auth_guard
+
 from app.data.incidents import (
     get_all_incidents,
     insert_incident,
     update_incident_status,
-    delete_incident
+    delete_incident,
 )
 from app.data.datasets import (
     get_all_datasets,
     insert_dataset,
     update_dataset_size,
-    delete_dataset
+    delete_dataset,
 )
 from app.data.tickets import (
     get_all_tickets,
     insert_ticket,
     update_ticket_status,
-    delete_ticket
+    delete_ticket,
 )
 
 st.set_page_config(page_title="Manage Data", page_icon="📝", layout="wide", initial_sidebar_state="collapsed")
 
-# ---------------- CSS (hide streamlit sidebar + clean spacing) ----------------
-st.markdown("""
-<style>
-[data-testid="stSidebarNav"] {display: none !important;}
-section[data-testid="stSidebar"] {display: none !important;}
-[data-testid="collapsedControl"] {display: none !important;}
-header[data-testid="stHeader"] {display: none !important;}
-.block-container {padding-top: 1.2rem !important; padding-bottom: 2.2rem !important;}
-
-.badge{
-    padding:7px 12px; border-radius:999px;
-    border:1px solid rgba(255,255,255,0.10);
-    background: rgba(255,255,255,0.04);
-    font-size: 13px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------- TOP BAR ----------------
-def topbar(active: str):
-    user = st.session_state.get("user_info", {"username": "User", "role": "user"})
-    left, right = st.columns([7, 3])
-
-    with left:
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            if st.button("🛡️ Dashboard", use_container_width=True, type="primary" if active == "Dashboard" else "secondary"):
-                st.switch_page("pages/02_Dashboard.py")
-        with c2:
-            if st.button("📊 Analytics", use_container_width=True, type="primary" if active == "Analytics" else "secondary"):
-                st.switch_page("pages/03_Analytics.py")
-        with c3:
-            if st.button("📝 Manage", use_container_width=True, type="primary" if active == "Manage" else "secondary"):
-                st.switch_page("pages/04_Manage_Data.py")
-        with c4:
-            if st.button("⚙️ Settings", use_container_width=True, type="primary" if active == "Settings" else "secondary"):
-                st.switch_page("pages/05_Settings.py")
-
-    with right:
-        r1, r2 = st.columns([2, 1])
-        with r1:
-            st.markdown(f'<div class="badge">👤 {user["username"]} · {user["role"]}</div>', unsafe_allow_html=True)
-        with r2:
-            if st.button("🚪", help="Logout", use_container_width=True):
-                st.session_state.logged_in = False
-                st.session_state.user_info = None
-                st.switch_page("main.py")
-
-# ---------------- AUTH GUARD (MAX POINTS: with st.stop) ----------------
-if not st.session_state.get("logged_in"):
-    st.warning("Please login first.")
-    st.switch_page("pages/01_Login.py")
-    st.stop()
+inject_global_css()
+auth_guard()
+topbar("Manage")
 
 user = st.session_state.user_info
 role = user.get("role", "user")
 
-# ---------------- RBAC ----------------
+# RBAC rules (Week 9)
 IS_ADMIN = role == "admin"
-IS_ANALYST = role == "analyst"
-IS_USER = role == "user"
-
 CAN_CREATE = IS_ADMIN
 CAN_UPDATE = IS_ADMIN
 CAN_DELETE = IS_ADMIN
 
-topbar("Manage")
-
 st.title("📝 Manage Data (CRUD)")
-st.caption("")
 st.markdown("---")
 
-# ---------------- CACHED LOADERS (Part 3 bonus) ----------------
+# -----------------------------
+# Cached loaders (performance)
+# -----------------------------
 @st.cache_data(show_spinner=False)
 def load_incidents_df():
     rows = get_all_incidents()
     return pd.DataFrame(rows, columns=["incident_id", "timestamp", "severity", "category", "status", "description"])
+
 
 @st.cache_data(show_spinner=False)
 def load_datasets_df():
     rows = get_all_datasets()
     return pd.DataFrame(rows, columns=["dataset_id", "name", "rows", "columns", "uploaded_by", "upload_date"])
 
+
 @st.cache_data(show_spinner=False)
 def load_tickets_df():
     rows = get_all_tickets()
-    return pd.DataFrame(rows, columns=["ticket_id", "priority", "description", "status", "assigned_to", "created_at", "resolution_time_hours"])
+    return pd.DataFrame(
+        rows,
+        columns=["ticket_id", "priority", "description", "status", "assigned_to", "created_at", "resolution_time_hours"],
+    )
+
 
 def clear_cache_and_rerun():
+    """After creating/updating/deleting, refresh cached data + refresh UI."""
     st.cache_data.clear()
     st.rerun()
+
 
 domain = st.radio(
     "**Select Domain:**",
     ["🛡️ Cybersecurity Incidents", "📊 Datasets", "🎫 IT Tickets"],
-    horizontal=True
+    horizontal=True,
 )
 
 st.write("")
 
-# ==========================================================
-# 🛡️ INCIDENTS
-# ==========================================================
+# -----------------------------
+# INCIDENTS
+# -----------------------------
 if domain == "🛡️ Cybersecurity Incidents":
     st.subheader("🛡️ Cybersecurity Incidents")
-
     tab1, tab2, tab3, tab4 = st.tabs(["📋 View", "➕ Create", "✏️ Update", "🗑️ Delete"])
 
     with tab1:
@@ -200,12 +159,11 @@ if domain == "🛡️ Cybersecurity Incidents":
                     st.success("✅ Incident deleted.")
                     clear_cache_and_rerun()
 
-# ==========================================================
-# 📊 DATASETS
-# ==========================================================
+# -----------------------------
+# DATASETS
+# -----------------------------
 elif domain == "📊 Datasets":
     st.subheader("📊 Datasets")
-
     tab1, tab2, tab3, tab4 = st.tabs(["📋 View", "➕ Create", "✏️ Update", "🗑️ Delete"])
 
     with tab1:
@@ -263,12 +221,11 @@ elif domain == "📊 Datasets":
                     st.success("✅ Dataset deleted.")
                     clear_cache_and_rerun()
 
-# ==========================================================
-# 🎫 TICKETS
-# ==========================================================
+# -----------------------------
+# TICKETS
+# -----------------------------
 else:
     st.subheader("🎫 IT Tickets")
-
     tab1, tab2, tab3, tab4 = st.tabs(["📋 View", "➕ Create", "✏️ Update", "🗑️ Delete"])
 
     with tab1:
