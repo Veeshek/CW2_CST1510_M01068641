@@ -80,3 +80,47 @@ def delete_user(username: str) -> int:
     count = cur.rowcount
     conn.close()
     return count
+# --- Extra helpers for Week 9 (used by Streamlit) ---
+
+from auth import verify_password  # we reuse Week 7 password check
+
+
+def verify_user(username: str, plain_password: str):
+    """
+    Check username + password against the users table.
+
+    Returns:
+        (True, role)  if credentials are valid
+        (False, None) otherwise
+    """
+    conn = connect_database()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT password_hash, role FROM users WHERE username = ?",
+        (username,),
+    )
+    row = cur.fetchone()
+    conn.close()
+
+    if row is None:
+        return False, None
+
+    stored_hash, role = row
+    if verify_password(plain_password, stored_hash):
+        return True, role
+    return False, None
+
+
+def get_user_role(username: str):
+    """
+    Get the role for a given username, or None if user does not exist.
+    """
+    conn = connect_database()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT role FROM users WHERE username = ?",
+        (username,),
+    )
+    row = cur.fetchone()
+    conn.close()
+    return row[0] if row else None

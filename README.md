@@ -1,144 +1,148 @@
-# CST1510 Week 6 – Git & GitHub Practice
+# CST1510 – Coursework 2  
+## Multi-Domain Intelligence Platform
 
-## Overview
-This mini-project was used to practise Git operations such as cloning, committing, pushing, pulling, creating branches, and managing files inside a repository.
+**Student Name:** Veeshek Bhagoban  
+**Student ID:** M01068641  
+**Module:** CST1510 – Programming for Data Communication and Networks  
+**Institution:** Middlesex University Mauritius  
 
-The goal was to become familiar with GitHub workflows before starting the larger coursework.
+---
 
-## What I learned
-- Creating a new Git repository  
-- Adding files and staging changes  
-- Writing meaningful commit messages  
-- Pushing code to GitHub  
-- Pulling updates and resolving conflicts  
-- Working with `.gitignore`
+## 📌 Overview
 
-## Project structure
-```
-test.py
-.gitignore
-README.md
-requirements.txt
-```
+This repository contains the submission for **Coursework 2** of the module  
+**CST1510 – Programming for Data Communication and Networks**.
 
-## How to run
-```
-python test.py
+The project implements a **Multi-Domain Intelligence Platform** developed using  
+**Python**, **Streamlit**, **SQLite**, and **Pandas**.
 
-```
-# CST1510 Week 7 – Authentication System
+The coursework consolidates concepts introduced progressively throughout the module,
+including secure authentication, database abstraction, CRUD operations, analytics,
+and role-based access control.
 
-## Overview
-This week I implemented a simple authentication system in Python.
-The goal was to understand how real applications store passwords securely and how to validate users during login.
+---
 
-All user information is stored inside the `DATA/` folder.
+## 🗓️ Week 7 – Secure Authentication System
 
-## What I implemented
-- Registration of new users  
-- Secure storage of password hashes using `bcrypt`  
-- Login using hashed password verification  
-- Username and password validation  
-- Storage of user data in `DATA/users.txt`
+During this phase, a complete authentication system was implemented.
 
-## Extra challenges completed
-- Password strength checker (weak, medium, strong)  
-- User roles (user, admin, analyst)  
-- Account lockout after 3 failed attempts (stored in `DATA/lockouts.txt`)  
-- Session token creation after login (stored in `DATA/sessions.txt`)
+### Features
+- User registration and login
+- Password hashing using **bcrypt**
+- Password strength validation
+- Account lockout after multiple failed login attempts
+- Session handling using Streamlit `session_state`
+- Persistent storage of users, sessions, and lockout records
 
-## Project structure
-```
-auth.py
-test.py
-DATA/
-    users.txt
-    lockouts.txt
-    sessions.txt
-requirements.txt
-README.md
-```
+### Security
+- Protected pages are inaccessible without authentication
+- Sessions are invalidated on logout
+- Credentials are never stored in plain text
 
-## How to run
-Install dependencies:
-```
-pip install bcrypt
-```
+---
 
-Run the program:
-```
-python auth.py
-```
-# CST1510 Week 8 – SQLite Database Migration & CRUD
+## 🗓️ Week 8 – Data Layer & CRUD Operations
 
-## Overview
-This week the goal was to migrate file-based data into a SQLite database and practise CRUD operations across several domains:
+This phase focused on database design, abstraction, and full CRUD functionality.
 
-- Users  
-- Cyber incidents  
-- Dataset metadata  
-- IT support tickets  
+### Database Architecture
+- SQLite database with a structured schema
+- Centralised database connection (`db.py`)
+- Schema initialisation handled via `schema.py`
+- Initial data loaded from CSV files
 
-CSV files are automatically imported into the database, and several CRUD demonstrations are included.
+### Data Abstraction
+- Clear separation between UI logic and database access
+- All SQL queries encapsulated in dedicated data modules (`app/data`)
+- UI pages never execute raw SQL directly
 
-## What I implemented
-- Creation of `intelligence_platform.db`  
-- Migration of users from `DATA/users.txt`
-- Automatic import of CSV files:
-  - `cyber_incidents.csv`
-  - `datasets_metadata.csv`
-  - `it_tickets.csv`
-- CRUD demonstrations:
-  - Creating, reading, updating and counting incidents  
-  - Creating and updating datasets  
-  - Creating and modifying IT tickets  
-- Aggregation queries (severity breakdown, owner grouping, ticket status, etc.)
+### CRUD Functionality (Create, Read, Update, Delete)
 
-## Extra challenges completed
-- Modular project structure with `app/` folder  
-- Separation of services and database logic (`db.py`, `csv_loader.py`)  
-- Reusable schema definitions  
-- Domain-specific modules:
-  - `data/incidents.py`
-  - `data/datasets.py`
-  - `data/users.py`
-  - `data/tickets.py`
+Full CRUD operations were implemented for **all application domains**:
 
-## Project structure
-```
-main.py
-requirements.txt
-README.md
-app/
-    data/
-        __init__.py
-        db.py
-        schema.py
-        users.py
-        incidents.py
-        datasets.py
-        tickets.py
-    services/
-        __init__.py
-        csv_loader.py
-        user_service.py
-DATA/
-    cyber_incidents.csv
-    datasets_metadata.csv
-    it_tickets.csv
-```
+#### 🛡️ Cybersecurity – Incidents
+- **Create:** add new cybersecurity incidents
+- **Read:** list and filter incidents
+- **Update:** modify severity, category, status, and description
+- **Delete:** remove incidents (admin only)
 
-## How to run
-Install dependencies:
-```
-pip install pandas bcrypt
-```
+#### 📊 Data Science – Dataset Metadata
+- **Create:** add dataset metadata records
+- **Read:** display dataset information and statistics
+- **Update:** modify dataset size and ownership details
+- **Delete:** remove dataset entries
 
-Run migration and CRUD demo:
-```
-python main.py
-```
+#### ⚙️ IT Operations – Support Tickets
+- **Create:** create IT support tickets
+- **Read:** view tickets and status summaries
+- **Update:** change ticket priority, status, and assignment
+- **Delete:** remove tickets (admin only)
 
-## Viewing the database
-The generated SQLite file can be opened with any viewer, for example:
-https://sqliteviewer.app
+Role-based access control is enforced for all write operations.
+
+---
+
+## 🗓️ Week 9 – Multi-Page Application, RBAC & Analytics
+
+The final phase focused on application structure, security, and analytics.
+
+### Application Structure
+- Multi-page Streamlit application
+- Custom top navigation bar
+- Default Streamlit sidebar hidden
+- Consistent layout and styling across all pages
+
+### Role-Based Access Control (RBAC)
+
+User access is controlled according to assigned roles:
+
+- **User:** limited access (dashboard and settings)
+- **Analyst:** access to dashboards and analytics (read-only data)
+- **Admin:** full access including CRUD operations
+
+Unauthorized access attempts are blocked and redirected to the login page.
+
+### Analytics & Visualisation
+- Cybersecurity dashboards with interactive charts
+- Phishing incident trend analysis
+- Dataset storage and archiving insights
+- IT ticket status, priority, and staff performance analytics
+- Key metrics displayed using `st.metric`
+- CSV export functionality for incident data
+
+---
+
+## 📂 Project Structure
+
+.
+├── main.py
+├── pages/
+│ ├── 01_Login.py
+│ ├── 02_Dashboard.py
+│ ├── 03_Analytics.py
+│ ├── 04_Manage_Data.py
+│ └── 05_Settings.py
+├── app/
+│ ├── data/
+│ │ ├── db.py
+│ │ ├── schema.py
+│ │ ├── users.py
+│ │ ├── incidents.py
+│ │ ├── datasets.py
+│ │ └── tickets.py
+│ └── services/
+│ ├── user_service.py
+│ └── csv_loader.py
+├── DATA/
+│ ├── intelligence_platform.db
+│ ├── cyber_incidents.csv
+│ ├── datasets_metadata.csv
+│ ├── it_tickets.csv
+│ ├── lockouts.txt
+│ ├── sessions.txt
+│ └── users.txt
+├── requirements.txt
+├── README.md
+└── .gitignore
+
+---

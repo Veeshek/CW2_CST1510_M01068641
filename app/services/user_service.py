@@ -1,46 +1,66 @@
-import os
+"""
+User service for authentication
+"""
+
+import bcrypt
 from app.data.db import connect_database
 
-USER_TEXT_PATH = os.path.join("DATA", "users.txt")
 
-
-def migrate_users_from_txt() -> None:
+def login(conn, username, password):
     """
-    Migrate users stored in the Week 7 text file into the users table.
-
-    File format: username,password_hash,role
-
-    This function can be run many times safely because it uses
-    INSERT OR IGNORE to avoid duplicate usernames.
+    Authenticate a user
+    Returns (success, message, user_data)
     """
-    if not os.path.exists(USER_TEXT_PATH):
-        print("No DATA/users.txt file found. Skipping user migration.")
-        return
+    cursor = conn.cursor()
+    
+    # Get user from database
+    cursor.execute(
+        "SELECT username, password_hash, role FROM users WHERE username = ?",
+        (username,)
+    )
+    user = cursor.fetchone()
+    
+    if not user:
+        return False, "Invalid username or password", None
+    
+    # Verify password
+    stored_hash = user[1]
+    try:
+        if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
+            user_data = {
+                'username': user[0],
+                'role': user[2]
+            }
+            return True, "Login successful!", user_data
+        else:
+            return False, "Invalid username or password", None
+    except Exception as e:
+        return False, f"Authentication error: {str(e)}", None
 
-    conn = connect_database()
-    cur = conn.cursor()
 
-    migrated = 0
-
-    with open(USER_TEXT_PATH, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-
-            parts = line.split(",")
-            if len(parts) < 3:
-                # Bad line format, skip it
-                continue
-
-            username, password_hash, role = parts[0], parts[1], parts[2]
-
-            cur.execute("""
-                INSERT OR IGNORE INTO users (username, password_hash, role)
-                VALUES (?, ?, ?)
-            """, (username, password_hash, role))
-            migrated += cur.rowcount
-
-    conn.commit()
-    conn.close()
-    print(f"User migration finished. {migrated} user(s) inserted into the database.")
+def register_user(conn, username, password, role="user"):
+    """
+    Register a new user
+    Returns (success, message)
+    """
+    cursor = conn.cursor()
+    
+    # Check if user exists
+    cursor.execute("SELECT username FROM users WHERE username = ?", (username,))
+    if cursor.fetchone():
+        return False, "Username already exists"
+    
+    try:
+        # Hash password
+        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        
+        # Insert user
+        cursor.execute(
+            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+            (username, hashed.decode('utf-8'), role)
+        )
+        conn.commit()
+        
+        return True, "Account created successfully!"
+    except Exception as e:
+        return False, f"Registration failed: {str(e)}"

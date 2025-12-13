@@ -112,3 +112,95 @@ def count_by_owner() -> List[Tuple[str, int]]:
     rows = cur.fetchall()
     conn.close()
     return rows
+# ===== NEW FUNCTIONS FOR WEEK 9 ANALYTICS =====
+
+import pandas as pd
+
+def analyze_resource_consumption(conn=None):
+    """
+    Calculate estimated resource usage (rows × columns).
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT 
+            name,
+            rows,
+            columns,
+            (rows * columns) as estimated_cells,
+            uploaded_by,
+            upload_date
+        FROM datasets_metadata
+        ORDER BY estimated_cells DESC
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    
+    if should_close:
+        conn.close()
+    
+    return df
+
+
+def analyze_by_uploader(conn=None):
+    """
+    Analyze dataset distribution by uploader.
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT 
+            uploaded_by,
+            COUNT(*) as dataset_count,
+            SUM(rows) as total_rows,
+            AVG(rows) as avg_rows_per_dataset
+        FROM datasets_metadata
+        GROUP BY uploaded_by
+        ORDER BY total_rows DESC
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    
+    if should_close:
+        conn.close()
+    
+    return df
+
+
+def identify_archiving_candidates(conn=None, row_threshold=100000):
+    """
+    Find datasets exceeding size threshold.
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT 
+            name,
+            rows,
+            columns,
+            (rows * columns) as estimated_size,
+            uploaded_by,
+            upload_date
+        FROM datasets_metadata
+        WHERE rows > ?
+        ORDER BY rows DESC
+    """
+    
+    df = pd.read_sql_query(query, conn, params=(row_threshold,))
+    
+    if should_close:
+        conn.close()
+    
+    return df

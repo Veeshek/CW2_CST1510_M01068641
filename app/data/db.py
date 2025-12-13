@@ -17,5 +17,18 @@ def connect_database(path: str = DB_PATH) -> sqlite3.Connection:
         os.makedirs(data_dir, exist_ok=True)
 
     conn = sqlite3.connect(path)
-    # We keep the default row format (simple tuples) to stay beginner-friendly.
+    # Keep the default row format (simple tuples) .
     return conn
+def get_connection(path: str = DB_PATH) -> sqlite3.Connection:
+    """
+    Alias for connect_database to support new code.
+    """
+    return connect_database(path)
+
+
+def close_connection(conn: sqlite3.Connection):
+    """
+    Close the database connection.
+    """
+    if conn:
+        conn.close()

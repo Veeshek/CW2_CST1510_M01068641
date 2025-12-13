@@ -126,3 +126,121 @@ def count_by_status() -> List[Tuple[str, int]]:
     rows = cur.fetchall()
     conn.close()
     return rows
+# ===== NEW FUNCTIONS FOR WEEK 9 ANALYTICS =====
+
+import pandas as pd
+
+def analyze_staff_performance(conn=None):
+    """
+    Analyze staff resolution performance.
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT 
+            assigned_to,
+            COUNT(*) as ticket_count,
+            AVG(resolution_time_hours) as avg_resolution_time,
+            MIN(resolution_time_hours) as fastest_resolution,
+            MAX(resolution_time_hours) as slowest_resolution
+        FROM it_tickets
+        WHERE resolution_time_hours IS NOT NULL
+        GROUP BY assigned_to
+        ORDER BY avg_resolution_time DESC
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    
+    if should_close:
+        conn.close()
+    
+    return df
+
+
+def analyze_status_bottleneck(conn=None):
+    """
+    Find which ticket statuses cause longest delays.
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT 
+            status,
+            COUNT(*) as ticket_count,
+            AVG(resolution_time_hours) as avg_resolution_time,
+            MAX(resolution_time_hours) as max_resolution_time
+        FROM it_tickets
+        WHERE resolution_time_hours IS NOT NULL
+        GROUP BY status
+        ORDER BY avg_resolution_time DESC
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    
+    if should_close:
+        conn.close()
+    
+    return df
+
+
+def get_tickets_by_status(conn=None):
+    """
+    Get ticket distribution by status.
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT status, COUNT(*) as count
+        FROM it_tickets
+        GROUP BY status
+        ORDER BY count DESC
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    
+    if should_close:
+        conn.close()
+    
+    return df
+
+
+def get_priority_distribution(conn=None):
+    """
+    Get ticket distribution by priority.
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT priority, COUNT(*) as count
+        FROM it_tickets
+        GROUP BY priority
+        ORDER BY 
+            CASE priority
+                WHEN 'High' THEN 1
+                WHEN 'Medium' THEN 2
+                WHEN 'Low' THEN 3
+            END
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    
+    if should_close:
+        conn.close()
+    
+    return df

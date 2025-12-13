@@ -24,7 +24,12 @@ def insert_incident(timestamp: str, severity: str, category: str,
     return incident_id
 
 
-def get_all_incidents() -> List[Tuple]:
+def get_all_incidents(conn=None) -> List[Tuple]:
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
     """
     Return all incidents as a list of tuples.
     """
@@ -35,7 +40,8 @@ def get_all_incidents() -> List[Tuple]:
         "FROM cyber_incidents ORDER BY timestamp DESC"
     )
     rows = cur.fetchall()
-    conn.close()
+    if should_close:
+        conn.close()
     return rows
 
 
@@ -108,3 +114,114 @@ def count_by_severity() -> List[Tuple[str, int]]:
     rows = cur.fetchall()
     conn.close()
     return rows
+# ===== NEW FONCTIONS WEEK 9 ANALYTICS =====
+
+import pandas as pd
+
+def get_phishing_trend(conn=None):
+    """
+    Analyze phishing incidents per month.
+    Returns DataFrame with monthly counts.
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT 
+            strftime('%Y-%m', timestamp) as month,
+            COUNT(*) as total_count,
+            SUM(CASE WHEN status IN ('Open', 'In Progress') THEN 1 ELSE 0 END) as unresolved
+        FROM cyber_incidents
+        WHERE category = 'Phishing'
+        GROUP BY month
+        ORDER BY month
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    
+    if should_close:
+        conn.close()
+    
+    return df
+
+
+def get_resolution_bottleneck(conn=None):
+    """
+    Identify categories with highest unresolved percentage.
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT 
+            category,
+            COUNT(*) as total,
+            SUM(CASE WHEN status IN ('Open', 'In Progress') THEN 1 ELSE 0 END) as unresolved,
+            ROUND(CAST(SUM(CASE WHEN status IN ('Open', 'In Progress') THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100, 1) as unresolved_pct
+        FROM cyber_incidents
+        GROUP BY category
+        ORDER BY unresolved_pct DESC
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    
+    if should_close:
+        conn.close()
+    
+    return df
+
+
+def get_incidents_by_category(conn=None):
+    """
+    Get incident count by category for pie chart.
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT category, COUNT(*) as count
+        FROM cyber_incidents
+        GROUP BY category
+        ORDER BY count DESC
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    
+    if should_close:
+        conn.close()
+    
+    return df
+
+
+def get_incidents_by_severity_and_status(conn=None):
+    """
+    Get incidents grouped by severity and status.
+    """
+    if conn is None:
+        conn = connect_database()
+        should_close = True
+    else:
+        should_close = False
+    
+    query = """
+        SELECT severity, status, COUNT(*) as count
+        FROM cyber_incidents
+        GROUP BY severity, status
+        ORDER BY severity, status
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    
+    if should_close:
+        conn.close()
+    
+    return df
