@@ -5,72 +5,47 @@
 **Student Name:** Veeshek Bhagoban  
 **Student ID:** M01068641  
 **Institution:** Middlesex University Mauritius  
-**Assessment:** Coursework 2  
+**Assessment Type:** Coursework 2  
 
 ---
 
 ## 📌 Project Overview
 
-This project is a **Multi-Domain Intelligence Platform** developed using **Python, Streamlit, SQLite, and Pandas**.  
-It integrates multiple concepts taught throughout the module, including:
+This project is a **Multi-Domain Intelligence Platform** developed using **Python**, **Streamlit**, **SQLite**, and **Pandas**.  
+It brings together the main concepts covered throughout the module and applies them in a single, coherent application.
 
-- Secure user authentication
-- Database design and CRUD operations
-- Data analytics and visualisation
-- Multi-page Streamlit applications
-- AI-assisted decision support (Week 10)
+The platform is designed to support **three operational domains**:
 
-The system supports **three operational domains**:
-- 🛡️ Cybersecurity  
-- 📊 Data Science  
-- ⚙️ IT Operations  
+- 🛡️ **Cybersecurity**
+- 📊 **Data Science**
+- ⚙️ **IT Operations**
 
-Each domain has its own datasets, analytics, and management interfaces.
+Each domain provides data management, analytics, and decision-support features, all integrated into a secure, multi-page Streamlit application.
 
 ---
 
-## 🗂️ Project Structure
+## 🎯 Learning Objectives Covered
 
-├── main.py
-├── pages/
-│ ├── 01_Login.py
-│ ├── 02_Dashboard.py
-│ ├── 03_Analytics.py
-│ ├── 04_Manage_Data.py
-│ ├── 05_Settings.py
-│ └── 06_AI_Assistant.py
-├── app/
-│ ├── data/
-│ │ ├── db.py
-│ │ ├── schema.py
-│ │ ├── users.py
-│ │ ├── incidents.py
-│ │ ├── datasets.py
-│ │ └── tickets.py
-│ └── services/
-│ ├── user_service.py
-│ ├── csv_loader.py
-│ └── ai_assistant.py
-├── DATA/
-│ ├── intelligence_platform.db
-│ ├── cyber_incidents.csv
-│ ├── datasets_metadata.csv
-│ ├── it_tickets.csv
-│ ├── lockouts.txt
-│ ├── sessions.txt
-│ └── users.txt
-├── requirements.txt
-├── .gitignore
-└── README.md
+This coursework demonstrates practical understanding of:
+
+- Secure authentication and access control
+- Database design and CRUD operations
+- Data analysis and visualisation
+- Multi-page Streamlit applications
+- Object-Oriented Programming (OOP)
+- AI-assisted decision support
+- Clean software architecture and documentation
 
 ---
 
 ## 🗓️ Week 6 – Git & Project Setup
 
-- GitHub repository created and maintained
-- Clear project structure with separation of concerns
-- `.gitignore` configured to exclude secrets and unnecessary files
-- Incremental development using Git commits
+During Week 6, the project foundation was established:
+
+- GitHub repository creation and management
+- Clear separation of concerns between UI, services, and data layers
+- Use of `.gitignore` to exclude virtual environments and secrets
+- Incremental commits following good version control practices
 
 ---
 
@@ -83,10 +58,10 @@ A secure authentication system was implemented with the following features:
 - Password strength validation
 - Account lockout after multiple failed login attempts
 - Session management using `st.session_state`
-- Role-based access control (user / analyst / admin)
-- Protection against unauthorized page access
+- Role-based access control (user, analyst, admin)
+- Protection of pages from unauthorised access
 
-All authentication logic is isolated from UI components to improve maintainability and security.
+Security-sensitive logic is separated from the UI, ensuring better maintainability and clarity.
 
 ---
 
@@ -94,47 +69,46 @@ All authentication logic is isolated from UI components to improve maintainabili
 
 The platform uses **SQLite** as its database backend.
 
-### Key features:
-- Centralised database connection (`db.py`)
-- Structured schema creation (`schema.py`)
-- Domain-specific data modules:
-  - `users.py`
-  - `incidents.py`
-  - `datasets.py`
-  - `tickets.py`
-- Full **CRUD functionality** (Create, Read, Update, Delete)
+Key features include:
+
+- Centralised database connection handling
+- Structured database schema
+- Domain-specific data tables for users, incidents, datasets, and IT tickets
+- Full CRUD (Create, Read, Update, Delete) functionality
 - Initial data loading from CSV files
-- Clean separation between database logic and Streamlit UI
+- Clear separation between database logic and Streamlit UI pages
+
+This ensures data consistency and simplifies future extensions.
 
 ---
 
 ## 🗓️ Week 9 – Data Analytics & Visualisation
 
-Interactive dashboards were created using **Pandas** and **Plotly**.
+Interactive dashboards and analytics views were developed using **Pandas** and **Plotly**.
 
-### Implemented features:
-- Multi-page Streamlit application
+Implemented features include:
+
+- Key metrics using `st.metric`
 - Interactive filters (severity, category, status)
-- Key performance metrics using `st.metric`
-- Data visualisations:
-  - Line charts (incident trends)
-  - Bar charts (severity and status)
-  - Pie charts (category distribution)
-- CSV export functionality
-- Domain-specific insights and interpretations
-- Unified and consistent UI across all pages
+- Line charts to show trends over time
+- Bar charts and pie charts for distribution analysis
+- Export of filtered data to CSV
+- Domain-specific insights to support decision-making
+- A consistent and professional user interface across all pages
 
 ---
 
 ## 🗓️ Week 10 – AI Integration
 
-An **AI Assistant** was integrated to support decision-making across all domains.
+An **AI Assistant** was integrated to support intelligent decision-making across all domains.
 
-### AI Features:
+### AI Features
+
 - Integration with the **OpenAI API**
-- Secure API key handling via `secrets.toml`
-- Domain-specific system prompts:
-  - Cybersecurity analysis
+- Secure API key management using `secrets.toml`
+- No API keys hardcoded in the source code
+- Domain-specific AI behaviour:
+  - Cybersecurity incident analysis
   - Data quality and analytics suggestions
   - IT ticket prioritisation and SLA recommendations
 - Streamlit chat interface with:
@@ -142,35 +116,93 @@ An **AI Assistant** was integrated to support decision-making across all domains
   - Streaming responses
   - Clear chat functionality
 - Optional database context injection:
-  - Incidents
+  - Security incidents
   - Datasets
   - IT tickets
-- AI integration directly embedded into the Cybersecurity Dashboard
+- AI functionality embedded directly into the application workflow
 
-### Important Note:
+### Important Note on API Usage
+
 > A valid OpenAI API key is required to generate live AI responses.  
-> If no key is provided, the AI interface, integration logic, and error handling remain fully functional for assessment purposes.
+> If no API key is provided, the AI interface, integration logic, and error handling remain fully functional for assessment purposes.
+
+---
+
+## 🗓️ Week 11 – Object-Oriented Programming (OOP) Refactoring
+
+During Week 11, the project was refactored to apply **Object-Oriented Programming principles**.
+
+### Entity (Model) Classes
+
+Dedicated entity classes were introduced to represent real-world objects:
+
+- User
+- SecurityIncident
+- Dataset
+- ITTicket
+
+Each entity encapsulates:
+- Data (attributes mapped from the database)
+- Behaviour (methods such as status checks, scoring rules, and context formatting)
+
+This improves code clarity and reduces duplication across the application.
+
+---
+
+### Repository Pattern
+
+A repository layer was introduced to manage database access:
+
+- SQL queries are isolated from the UI
+- Repository methods return entity objects instead of raw tuples or dictionaries
+- Improves separation of concerns and maintainability
+- Demonstrates clean OOP design and refactoring skills
+
+---
+
+### Benefits of OOP Refactoring
+
+- Cleaner and more modular codebase
+- Improved readability and structure
+- Easier future maintenance and scaling
+- Clear distinction between UI, services, and domain logic
 
 ---
 
 ## 🔐 Security & Best Practices
 
-- No API keys or secrets are hardcoded
-- Sensitive files are excluded via `.gitignore`
+The project follows good security and development practices:
+
+- No secrets or API keys committed to GitHub
+- Sensitive configuration handled via `.streamlit/secrets.toml`
 - Graceful error handling throughout the application
-- Modular and maintainable codebase
-- Clear inline comments for academic clarity
+- Modular architecture for improved maintainability
+- Clear and detailed inline comments for academic clarity
 
 ---
 
 ## ▶️ How to Run the Project
 
-```bash
-# Activate virtual environment
-.\.venv\Scripts\activate
+1. Activate the virtual environment  
+2. Install dependencies using `requirements.txt`  
+3. Run the application using Streamlit  
 
-# Install dependencies
-pip install -r requirements.txt
+The application runs locally and is accessible via a web browser.
 
-# Run the application
-streamlit run main.py
+---
+
+## ✅ Conclusion
+
+This coursework demonstrates a complete, well-structured, and secure application that integrates:
+
+- Authentication and authorisation
+- Database-driven CRUD operations
+- Data analytics and visualisation
+- AI-assisted decision support
+- Object-Oriented Programming principles
+
+The project aligns fully with the learning outcomes of **CST1510** and reflects good software engineering practices.
+
+---
+
+**End of Coursework 2**
