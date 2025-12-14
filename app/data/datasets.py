@@ -1,206 +1,95 @@
-from typing import List, Tuple, Optional
+"""
+Dataset management module for Data Science domain
+Handles CRUD operations for dataset metadata
+"""
+
+import sqlite3
 from app.data.db import connect_database
 
-
-def insert_dataset(name: str, rows: int, columns: int,
-                   uploaded_by: str, upload_date: str) -> int:
-    """
-    Insert a new dataset description into datasets_metadata.
-
-    Returns the new dataset_id.
-    """
+def get_all_datasets():
+    """Retrieve all datasets from database"""
     conn = connect_database()
     cur = conn.cursor()
+    
     cur.execute(
-        """
-        INSERT INTO datasets_metadata (name, rows, columns, uploaded_by, upload_date)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (name, rows, columns, uploaded_by, upload_date),
-    )
-    conn.commit()
-    dataset_id = cur.lastrowid
-    conn.close()
-    return dataset_id
-
-
-def get_all_datasets() -> List[Tuple]:
-    """
-    Return all datasets as a list of tuples.
-    """
-    conn = connect_database()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT dataset_id, name, rows, columns, uploaded_by, upload_date "
+        "SELECT dataset_id, name, source, size_mb, rows, quality_score, status "
         "FROM datasets_metadata ORDER BY dataset_id"
     )
-    rows = cur.fetchall()
+    
+    datasets = cur.fetchall()
     conn.close()
-    return rows
+    
+    return datasets
 
-
-def get_dataset(dataset_id: int) -> Optional[Tuple]:
-    """
-    Get one dataset by id.
-    """
+def get_dataset_by_id(dataset_id):
+    """Retrieve a specific dataset by ID"""
     conn = connect_database()
     cur = conn.cursor()
+    
     cur.execute(
-        "SELECT dataset_id, name, rows, columns, uploaded_by, upload_date "
+        "SELECT dataset_id, name, source, size_mb, rows, quality_score, status "
         "FROM datasets_metadata WHERE dataset_id = ?",
-        (dataset_id,),
+        (dataset_id,)
     )
-    row = cur.fetchone()
+    
+    dataset = cur.fetchone()
     conn.close()
-    return row
+    
+    return dataset
 
-
-def update_dataset_size(dataset_id: int, new_rows: int, new_columns: int) -> int:
-    """
-    Update the number of rows/columns for a dataset.
-
-    Returns number of rows updated.
-    """
-    conn = connect_database()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        UPDATE datasets_metadata
-        SET rows = ?, columns = ?
-        WHERE dataset_id = ?
-        """,
-        (new_rows, new_columns, dataset_id),
-    )
-    conn.commit()
-    count = cur.rowcount
-    conn.close()
-    return count
-
-
-def delete_dataset(dataset_id: int) -> int:
-    """
-    Delete a dataset from the table.
-
-    Returns number of rows deleted.
-    """
-    conn = connect_database()
-    cur = conn.cursor()
-    cur.execute(
-        "DELETE FROM datasets_metadata WHERE dataset_id = ?",
-        (dataset_id,),
-    )
-    conn.commit()
-    count = cur.rowcount
-    conn.close()
-    return count
-
-
-def count_by_owner() -> List[Tuple[str, int]]:
-    """
-    Simple analytical query: count how many datasets each person uploaded.
-    """
-    conn = connect_database()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT uploaded_by, COUNT(*) AS total
-        FROM datasets_metadata
-        GROUP BY uploaded_by
-        ORDER BY total DESC
-        """
-    )
-    rows = cur.fetchall()
-    conn.close()
-    return rows
-# ===== NEW FUNCTIONS FOR WEEK 9 ANALYTICS =====
-
-import pandas as pd
-
-def analyze_resource_consumption(conn=None):
-    """
-    Calculate estimated resource usage (rows × columns).
-    """
-    if conn is None:
+def create_dataset(name, source, size_mb, rows, quality_score=0.8, status="Active"):
+    """Create a new dataset entry"""
+    try:
         conn = connect_database()
-        should_close = True
-    else:
-        should_close = False
-    
-    query = """
-        SELECT 
-            name,
-            rows,
-            columns,
-            (rows * columns) as estimated_cells,
-            uploaded_by,
-            upload_date
-        FROM datasets_metadata
-        ORDER BY estimated_cells DESC
-    """
-    
-    df = pd.read_sql_query(query, conn)
-    
-    if should_close:
+        cur = conn.cursor()
+        
+        cur.execute(
+            "INSERT INTO datasets_metadata (name, source, size_mb, rows, quality_score, status) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (name, source, size_mb, rows, quality_score, status)
+        )
+        
+        conn.commit()
         conn.close()
-    
-    return df
+        return True
+        
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return False
 
-
-def analyze_by_uploader(conn=None):
-    """
-    Analyze dataset distribution by uploader.
-    """
-    if conn is None:
+def update_dataset(dataset_id, name, source, size_mb, rows, quality_score, status):
+    """Update an existing dataset"""
+    try:
         conn = connect_database()
-        should_close = True
-    else:
-        should_close = False
-    
-    query = """
-        SELECT 
-            uploaded_by,
-            COUNT(*) as dataset_count,
-            SUM(rows) as total_rows,
-            AVG(rows) as avg_rows_per_dataset
-        FROM datasets_metadata
-        GROUP BY uploaded_by
-        ORDER BY total_rows DESC
-    """
-    
-    df = pd.read_sql_query(query, conn)
-    
-    if should_close:
+        cur = conn.cursor()
+        
+        cur.execute(
+            "UPDATE datasets_metadata "
+            "SET name = ?, source = ?, size_mb = ?, rows = ?, quality_score = ?, status = ? "
+            "WHERE dataset_id = ?",
+            (name, source, size_mb, rows, quality_score, status, dataset_id)
+        )
+        
+        conn.commit()
         conn.close()
-    
-    return df
+        return True
+        
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return False
 
-
-def identify_archiving_candidates(conn=None, row_threshold=100000):
-    """
-    Find datasets exceeding size threshold.
-    """
-    if conn is None:
+def delete_dataset(dataset_id):
+    """Delete a dataset by ID"""
+    try:
         conn = connect_database()
-        should_close = True
-    else:
-        should_close = False
-    
-    query = """
-        SELECT 
-            name,
-            rows,
-            columns,
-            (rows * columns) as estimated_size,
-            uploaded_by,
-            upload_date
-        FROM datasets_metadata
-        WHERE rows > ?
-        ORDER BY rows DESC
-    """
-    
-    df = pd.read_sql_query(query, conn, params=(row_threshold,))
-    
-    if should_close:
+        cur = conn.cursor()
+        
+        cur.execute("DELETE FROM datasets_metadata WHERE dataset_id = ?", (dataset_id,))
+        
+        conn.commit()
         conn.close()
-    
-    return df
+        return True
+        
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return False

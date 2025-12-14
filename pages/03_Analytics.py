@@ -1,28 +1,38 @@
 """
-Analytics Page - Data Science and IT Operations Domains
+03_Analytics.py
+Multi-Domain Intelligence Platform - Analytics Page
 
-This page provides comprehensive analytics for:
-- Data Science: Dataset resource management and governance
-- IT Operations: Service desk performance and bottleneck analysis
+This page focuses on *analysis* (not CRUD):
+- Data Science domain: storage usage, data governance signals, archiving candidates
+- IT Operations domain: staff workload, backlog, SLA risk indicators
 
-Week 9: Interactive Streamlit visualizations
-Week 11: OOP integration with Repository pattern
+Key goals (Week 9 + Week 11):
+- Interactive charts (Plotly) + meaningful KPIs
+- Clean separation: UI here, data access via Repository (OOP)
+- Reusable / maintainable code: cached reads + helper functions
 """
 
-import streamlit as st
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import List, Dict, Any
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import sys
-from pathlib import Path
+import streamlit as st
 
-# Add project root to path
+# Add project root to Python path so imports work when Streamlit runs from /pages
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.ui import inject_global_css, topbar, auth_guard
 from app.services.repository import Repository
 
-# Page configuration
+
+# -----------------------------
+# Streamlit page config
+# -----------------------------
 st.set_page_config(
     page_title="Analytics",
     page_icon="📊",
@@ -30,496 +40,498 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Apply styling and authentication
 inject_global_css()
 auth_guard()
 topbar("Analytics")
 
-# Get user info
 user = st.session_state.get("user_info", {"username": "user", "role": "user"})
 
-# Page header
 st.title("📊 Multi-Domain Analytics")
 st.caption(f"Logged in as: **{user.get('username')}** | Role: **{user.get('role')}**")
 st.markdown("---")
 
-# Domain selector
+
+# -----------------------------
+# Data access (Repository + cache)
+# Why cache? Streamlit reruns the script often; caching avoids hitting SQLite repeatedly.
+# -----------------------------
+repo = Repository()
+
+@st.cache_data(show_spinner=False, ttl=60)
+def load_datasets(limit: int = 200):
+    """Load dataset objects from Repository. Cached to improve performance."""
+    return repo.get_latest_datasets(limit=limit)
+
+@st.cache_data(show_spinner=False, ttl=60)
+def load_tickets(limit: int = 300):
+    """Load ticket objects from Repository. Cached to improve performance."""
+    return repo.get_latest_tickets(limit=limit)
+
+
+def safe_df(records: List[Dict[str, Any]]) -> pd.DataFrame:
+    """
+    Convert list of dicts into DataFrame safely.
+    If empty, return empty DataFrame with no crash.
+    """
+    if not records:
+        return pd.DataFrame()
+    return pd.DataFrame(records)
+
+
+def download_csv_button(df: pd.DataFrame, filename: str, label: str = "⬇️ Download CSV"):
+    """Small helper: add a CSV export button for marking 'usability' points."""
+    if df is None or df.empty:
+        st.info("Nothing to export.")
+        return
+    st.download_button(
+        label=label,
+        data=df.to_csv(index=False).encode("utf-8"),
+        file_name=filename,
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+
+# -----------------------------
+# Domain selector (Analytics)
+# -----------------------------
 domain = st.radio(
     "Select Analytics Domain:",
     ["📊 Data Science", "⚙️ IT Operations"],
     horizontal=True,
 )
-
 st.markdown("---")
 
-# Create repository instance
-repo = Repository()
 
-# ============================================
-# DATA SCIENCE DOMAIN
-# ============================================
+# =====================================================================
+# DATA SCIENCE ANALYTICS
+# =====================================================================
 if domain == "📊 Data Science":
     st.header("📊 Data Science Analytics")
     st.write("Dataset resource management and governance analysis")
-    
-    # Create tabs
+
+    # Load datasets once (cached)
+    with st.spinner("Loading dataset analytics..."):
+        datasets = load_datasets(limit=200)
+
+    # If no data, stop gracefully
+    if not datasets:
+        st.info("No datasets found in database.")
+        st.stop()
+
+    # Build DataFrame from OOP objects
+    rows = []
+    for ds in datasets:
+        # NOTE: ds is an object (Week 11). We map fields for analysis charts.
+        rows.append(
+            {
+                "dataset_id": ds.dataset_id,
+                "name": ds.name,
+                "source": getattr(ds, "source", "Unknown"),     # robust if field differs
+                "size_mb": getattr(ds, "size_mb", None),
+                "rows": getattr(ds, "rows", None),
+                "quality_score": getattr(ds, "quality_score", None),
+                "status": getattr(ds, "status", "Unknown"),
+                "is_large": bool(ds.is_large()) if hasattr(ds, "is_large") else False,
+            }
+        )
+
+    df = safe_df(rows)
+
+    # -----------------------------
+    # Filters (adds “analytics depth”)
+    # -----------------------------
+    with st.expander("🔎 Filters (Data Science)", expanded=True):
+        colA, colB, colC, colD = st.columns(4)
+
+        # Source filter
+        sources = sorted(df["source"].dropna().unique().tolist())
+        source_choice = colA.multiselect("Source", options=sources, default=sources)
+
+        # Status filter
+        statuses = sorted(df["status"].dropna().unique().tolist())
+        status_choice = colB.multiselect("Status", options=statuses, default=statuses)
+
+        # Quality filter
+        # If some quality values are missing, we fill with 0 so they show as low-quality.
+        df["quality_score"] = pd.to_numeric(df["quality_score"], errors="coerce").fillna(0.0)
+        q_min, q_max = float(df["quality_score"].min()), float(df["quality_score"].max())
+        q_from, q_to = colC.slider(
+            "Quality range",
+            min_value=0.0,
+            max_value=max(1.0, q_max),
+            value=(max(0.0, q_min), max(1.0, q_max)),
+            step=0.05,
+        )
+
+        # Top N
+        top_n = colD.selectbox("Top N (by size)", [5, 10, 15, 20], index=1)
+
+    # Apply filters
+    filtered = df[
+        df["source"].isin(source_choice)
+        & df["status"].isin(status_choice)
+        & (df["quality_score"].between(q_from, q_to))
+    ].copy()
+
+    if filtered.empty:
+        st.warning("No datasets match your filters.")
+        st.stop()
+
     tab1, tab2, tab3 = st.tabs(["💾 Resources", "📁 Sources", "🗄️ Archiving"])
-    
-    # TAB 1: RESOURCE ANALYSIS
+
+    # -----------------------------
+    # TAB 1 - Resources
+    # -----------------------------
     with tab1:
         st.subheader("Dataset Storage Analysis")
-        
-        try:
-            # Get datasets
-            datasets = repo.get_latest_datasets(limit=100)
-            
-            if datasets:
-                # Convert to dataframe for analysis
-                df_data = []
-                for ds in datasets:
-                    df_data.append({
-                        'dataset_id': ds.dataset_id,
-                        'name': ds.name,
-                        'source': ds.source,
-                        'size_mb': ds.size_mb,
-                        'rows': ds.rows,
-                        'cells': ds.rows * 10,  # Estimate cells (simplified)
-                        'quality_score': ds.quality_score,
-                        'status': ds.status
-                    })
-                
-                df = pd.DataFrame(df_data)
-                
-                # Metrics
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    total_size = df['size_mb'].sum()
-                    st.metric("Total Storage", f"{total_size:.1f} MB")
-                
-                with col2:
-                    avg_quality = df['quality_score'].mean()
-                    st.metric("Avg Quality Score", f"{avg_quality:.2f}")
-                
-                with col3:
-                    large_datasets = sum(1 for ds in datasets if ds.is_large())
-                    st.metric("Large Datasets", large_datasets)
-                
-                st.write("")
-                
-                # Top 10 by size
-                st.write("**Top 10 Datasets by Size (MB)**")
-                
-                top_10 = df.nlargest(10, 'size_mb')
-                
-                fig = px.bar(
-                    top_10,
-                    x='size_mb',
-                    y='name',
-                    orientation='h',
-                    title='Top 10 Datasets by Storage Size',
-                    labels={'size_mb': 'Size (MB)', 'name': 'Dataset Name'},
-                    color='size_mb',
-                    color_continuous_scale='Blues'
+
+        # Convert size_mb/rows to numeric for safe computations
+        filtered["size_mb"] = pd.to_numeric(filtered["size_mb"], errors="coerce").fillna(0.0)
+        filtered["rows"] = pd.to_numeric(filtered["rows"], errors="coerce").fillna(0).astype(int)
+
+        total_size = float(filtered["size_mb"].sum())
+        avg_quality = float(filtered["quality_score"].mean())
+        large_count = int(filtered["is_large"].sum())
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total Storage", f"{total_size:.1f} MB")
+        col2.metric("Avg Quality Score", f"{avg_quality:.2f}")
+        col3.metric("Large Datasets", large_count)
+        col4.metric("Total Datasets", len(filtered))
+
+        st.markdown("")
+
+        # Top N by size
+        st.write(f"**Top {top_n} Datasets by Size (MB)**")
+        top_by_size = filtered.nlargest(top_n, "size_mb")
+
+        fig = px.bar(
+            top_by_size.sort_values("size_mb", ascending=True),
+            x="size_mb",
+            y="name",
+            orientation="h",
+            title=f"Top {top_n} Datasets by Storage Size",
+            labels={"size_mb": "Size (MB)", "name": "Dataset Name"},
+        )
+        fig.update_layout(height=420)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Storage concentration (Top N vs Others)
+        top_size_sum = float(top_by_size["size_mb"].sum())
+        other_size = max(0.0, total_size - top_size_sum)
+
+        pie = go.Figure(
+            data=[
+                go.Pie(
+                    labels=[f"Top {top_n} Datasets", "Other Datasets"],
+                    values=[top_size_sum, other_size],
+                    hole=0.35,
                 )
-                
-                fig.update_layout(
-                    height=400,
-                    showlegend=False,
-                    yaxis={'categoryorder': 'total ascending'}
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Storage breakdown
-                st.write("**Storage Distribution**")
-                
-                top_10_size = top_10['size_mb'].sum()
-                other_size = total_size - top_10_size
-                
-                fig_pie = go.Figure(data=[go.Pie(
-                    labels=['Top 10 Datasets', 'Other Datasets'],
-                    values=[top_10_size, other_size],
-                    hole=0.3
-                )])
-                
-                fig_pie.update_layout(
-                    title="Storage Concentration",
-                    height=350
-                )
-                
-                st.plotly_chart(fig_pie, use_container_width=True)
-                
-                st.info(f"📊 Top 10 datasets consume **{(top_10_size/total_size)*100:.1f}%** of total storage")
-                
-            else:
-                st.info("No datasets found in database")
-                
-        except Exception as e:
-            st.error(f"Error loading dataset analytics: {str(e)}")
-    
-    # TAB 2: SOURCE ANALYSIS
+            ]
+        )
+        pie.update_layout(title="Storage Concentration", height=360)
+        st.plotly_chart(pie, use_container_width=True)
+
+        concentration = (top_size_sum / total_size * 100) if total_size > 0 else 0.0
+        st.info(f"📌 Storage concentration: Top {top_n} datasets use **{concentration:.1f}%** of filtered storage.")
+
+        # Export
+        st.markdown("### Export")
+        download_csv_button(top_by_size[["dataset_id", "name", "source", "size_mb", "rows", "quality_score", "status"]],
+                            filename="data_science_top_datasets.csv")
+
+    # -----------------------------
+    # TAB 2 - Sources
+    # -----------------------------
     with tab2:
         st.subheader("Data Source Distribution")
-        
-        try:
-            datasets = repo.get_latest_datasets(limit=100)
-            
-            if datasets:
-                # Group by source
-                df_data = [{'source': ds.source, 'size_mb': ds.size_mb} for ds in datasets]
-                df = pd.DataFrame(df_data)
-                
-                source_stats = df.groupby('source').agg({
-                    'size_mb': ['sum', 'count']
-                }).reset_index()
-                
-                source_stats.columns = ['source', 'total_size_mb', 'dataset_count']
-                
-                # Source distribution chart
-                fig = px.pie(
-                    source_stats,
-                    values='dataset_count',
-                    names='source',
-                    title='Dataset Count by Source',
-                    hole=0.3
-                )
-                
-                fig.update_traces(textposition='inside', textinfo='percent+label')
-                fig.update_layout(height=400)
-                
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Source table
-                st.write("**Source Statistics**")
-                
-                source_stats['avg_size_mb'] = source_stats['total_size_mb'] / source_stats['dataset_count']
-                source_stats = source_stats.sort_values('total_size_mb', ascending=False)
-                
-                st.dataframe(
-                    source_stats.style.format({
-                        'total_size_mb': '{:.1f} MB',
-                        'dataset_count': '{:.0f}',
-                        'avg_size_mb': '{:.1f} MB'
-                    }),
-                    use_container_width=True,
-                    hide_index=True
-                )
-                
-                # Insights
-                dominant_source = source_stats.iloc[0]
-                st.info(f"🔍 **{dominant_source['source']}** is the dominant source with {dominant_source['dataset_count']:.0f} datasets ({dominant_source['total_size_mb']:.1f} MB)")
-                
-            else:
-                st.info("No datasets found")
-                
-        except Exception as e:
-            st.error(f"Error loading source analytics: {str(e)}")
-    
-    # TAB 3: ARCHIVING RECOMMENDATIONS
+
+        # Group by source
+        source_stats = (
+            filtered.groupby("source", dropna=False)
+            .agg(dataset_count=("dataset_id", "count"), total_size_mb=("size_mb", "sum"), avg_quality=("quality_score", "mean"))
+            .reset_index()
+            .sort_values("dataset_count", ascending=False)
+        )
+
+        fig = px.pie(
+            source_stats,
+            values="dataset_count",
+            names="source",
+            title="Dataset Count by Source",
+            hole=0.35,
+        )
+        fig.update_traces(textposition="inside", textinfo="percent+label")
+        fig.update_layout(height=420)
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.write("**Source Statistics**")
+        st.dataframe(
+            source_stats.style.format(
+                {"dataset_count": "{:.0f}", "total_size_mb": "{:.1f} MB", "avg_quality": "{:.2f}"}
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        # Insight: dominant source (count-based)
+        dominant = source_stats.iloc[0]
+        st.info(
+            f"🔍 Dominant source: **{dominant['source']}** "
+            f"({dominant['dataset_count']:.0f} datasets, {dominant['total_size_mb']:.1f} MB)."
+        )
+
+        # Export
+        st.markdown("### Export")
+        download_csv_button(source_stats, filename="data_science_sources_summary.csv")
+
+    # -----------------------------
+    # TAB 3 - Archiving
+    # -----------------------------
     with tab3:
         st.subheader("Archiving Recommendations")
-        
-        try:
-            datasets = repo.get_latest_datasets(limit=100)
-            
-            if datasets:
-                # Find datasets that need archiving
-                archiving_candidates = [ds for ds in datasets if ds.is_large()]
-                
-                st.metric("Datasets Recommended for Archiving", len(archiving_candidates))
-                
-                if archiving_candidates:
-                    # Create table
-                    archive_data = []
-                    for ds in archiving_candidates:
-                        archive_data.append({
-                            'Dataset': ds.name,
-                            'Size (MB)': ds.size_mb,
-                            'Rows': f"{ds.rows:,}",
-                            'Source': ds.source,
-                            'Quality': f"{ds.quality_score:.2f}",
-                            'Reason': 'Size > 500 MB' if ds.size_mb > 500 else 'Rows > 1M'
-                        })
-                    
-                    df_archive = pd.DataFrame(archive_data)
-                    
-                    st.dataframe(df_archive, use_container_width=True, hide_index=True)
-                    
-                    # Calculate savings
-                    total_archivable = sum(ds.size_mb for ds in archiving_candidates)
-                    
-                    st.success(f"💾 Archiving these datasets would free up **{total_archivable:.1f} MB** from active storage")
-                    
-                    # Recommendations
-                    st.write("**Recommended Actions:**")
-                    st.write("1. Move datasets > 500 MB to archive tier storage")
-                    st.write("2. Implement tiered storage: Active (SSD) → Archive (HDD) → Cold (Cloud)")
-                    st.write("3. Set up automated archiving policies based on age and access patterns")
-                    st.write("4. Review quality scores - low quality large datasets should be validated or deleted")
-                    
-                else:
-                    st.success("✅ No datasets currently exceed archiving thresholds")
-                    
-            else:
-                st.info("No datasets found")
-                
-        except Exception as e:
-            st.error(f"Error loading archiving recommendations: {str(e)}")
 
-# ============================================
-# IT OPERATIONS DOMAIN  
-# ============================================
-else:  # IT Operations
+        # Define archiving candidates:
+        # - either flagged by OOP method is_large()
+        # - OR quality is low and size is significant (simple governance heuristic)
+        candidates = filtered[(filtered["is_large"] == True) | ((filtered["quality_score"] < 0.70) & (filtered["size_mb"] > 200))].copy()
+
+        st.metric("Datasets Recommended for Review/Archiving", len(candidates))
+
+        if candidates.empty:
+            st.success("✅ No datasets currently exceed archiving/review thresholds (under current filters).")
+        else:
+            # Reason tagging (explainable rules = good for marking)
+            def reason(row):
+                if row["is_large"]:
+                    return "Large dataset threshold triggered"
+                return "Low quality & significant size"
+
+            candidates["reason"] = candidates.apply(reason, axis=1)
+            candidates = candidates.sort_values("size_mb", ascending=False)
+
+            st.dataframe(
+                candidates[["dataset_id", "name", "source", "size_mb", "rows", "quality_score", "status", "reason"]],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            total_archivable = float(candidates["size_mb"].sum())
+            st.success(f"💾 Potential active storage saving: **{total_archivable:.1f} MB** (if archived/cleaned).")
+
+            st.write("**Recommended Actions (Governance):**")
+            st.write("1. Archive datasets that are large but rarely needed (tiered storage policy).")
+            st.write("2. Flag large + low-quality datasets for quality review before they keep consuming resources.")
+            st.write("3. Introduce upload checks (schema + missing values + quality score).")
+            st.write("4. Review sources producing most low-quality datasets and improve upstream processes.")
+
+            # Export
+            st.markdown("### Export")
+            download_csv_button(
+                candidates[["dataset_id", "name", "source", "size_mb", "rows", "quality_score", "status", "reason"]],
+                filename="data_science_archiving_candidates.csv",
+            )
+
+
+# =====================================================================
+# IT OPERATIONS ANALYTICS
+# =====================================================================
+else:
     st.header("⚙️ IT Operations Analytics")
     st.write("Service desk performance and bottleneck analysis")
-    
-    # Create tabs
-    tab1, tab2, tab3 = st.tabs(["👥 Staff Performance", "📊 Status Analysis", "⏱️ Resolution Times"])
-    
-    # TAB 1: STAFF PERFORMANCE
+
+    with st.spinner("Loading IT ticket analytics..."):
+        tickets = load_tickets(limit=300)
+
+    if not tickets:
+        st.info("No tickets found in database.")
+        st.stop()
+
+    # Build DataFrame from ticket objects
+    trows = []
+    for t in tickets:
+        trows.append(
+            {
+                "ticket_id": t.ticket_id,
+                "created_at": getattr(t, "created_at", ""),
+                "priority": getattr(t, "priority", "Unknown"),
+                "status": getattr(t, "status", "Unknown"),
+                "assigned_to": getattr(t, "assigned_to", "Unassigned"),
+                "is_overdue": bool(t.is_overdue()) if hasattr(t, "is_overdue") else False,
+                "urgency_score": float(t.urgency_score()) if hasattr(t, "urgency_score") else 0.0,
+            }
+        )
+
+    df_t = safe_df(trows)
+
+    # Filters
+    with st.expander("🔎 Filters (IT Operations)", expanded=True):
+        colA, colB, colC = st.columns(3)
+        staff_list = sorted(df_t["assigned_to"].dropna().unique().tolist())
+        staff_sel = colA.multiselect("Assigned to", staff_list, default=staff_list)
+
+        prios = sorted(df_t["priority"].dropna().unique().tolist())
+        prio_sel = colB.multiselect("Priority", prios, default=prios)
+
+        statuses = sorted(df_t["status"].dropna().unique().tolist())
+        status_sel = colC.multiselect("Status", statuses, default=statuses)
+
+    df_t = df_t[
+        df_t["assigned_to"].isin(staff_sel)
+        & df_t["priority"].isin(prio_sel)
+        & df_t["status"].isin(status_sel)
+    ].copy()
+
+    if df_t.empty:
+        st.warning("No tickets match your filters.")
+        st.stop()
+
+    tab1, tab2, tab3 = st.tabs(["👥 Staff Performance", "📊 Status Analysis", "⏱️ SLA / Overdue Risk"])
+
+    # TAB 1 - Staff performance
     with tab1:
         st.subheader("Staff Performance Analysis")
-        
-        try:
-            tickets = repo.get_latest_tickets(limit=200)
-            
-            if tickets:
-                # Calculate per-staff metrics
-                staff_metrics = {}
-                
-                for ticket in tickets:
-                    staff = ticket.assigned_to
-                    
-                    if staff not in staff_metrics:
-                        staff_metrics[staff] = {
-                            'tickets': 0,
-                            'urgency_total': 0,
-                            'overdue': 0
-                        }
-                    
-                    staff_metrics[staff]['tickets'] += 1
-                    staff_metrics[staff]['urgency_total'] += ticket.urgency_score()
-                    
-                    if ticket.is_overdue():
-                        staff_metrics[staff]['overdue'] += 1
-                
-                # Create dataframe
-                staff_data = []
-                for staff, metrics in staff_metrics.items():
-                    staff_data.append({
-                        'Staff Member': staff,
-                        'Total Tickets': metrics['tickets'],
-                        'Avg Urgency': metrics['urgency_total'] / metrics['tickets'],
-                        'Overdue Count': metrics['overdue'],
-                        'Overdue %': (metrics['overdue'] / metrics['tickets']) * 100
-                    })
-                
-                df_staff = pd.DataFrame(staff_data).sort_values('Total Tickets', ascending=False)
-                
-                # Chart: Tickets per staff
-                fig = px.bar(
-                    df_staff,
-                    x='Staff Member',
-                    y='Total Tickets',
-                    title='Ticket Volume by Staff Member',
-                    color='Total Tickets',
-                    color_continuous_scale='Viridis'
-                )
-                
-                fig.update_layout(height=400, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Chart: Overdue rates
-                fig2 = px.bar(
-                    df_staff,
-                    x='Staff Member',
-                    y='Overdue %',
-                    title='Overdue Ticket Percentage by Staff',
-                    color='Overdue %',
-                    color_continuous_scale='Reds'
-                )
-                
-                fig2.update_layout(height=400, showlegend=False)
-                st.plotly_chart(fig2, use_container_width=True)
-                
-                # Staff table
-                st.write("**Performance Metrics**")
-                st.dataframe(
-                    df_staff.style.format({
-                        'Total Tickets': '{:.0f}',
-                        'Avg Urgency': '{:.1f}',
-                        'Overdue Count': '{:.0f}',
-                        'Overdue %': '{:.1f}%'
-                    }),
-                    use_container_width=True,
-                    hide_index=True
-                )
-                
-                # Workload analysis
-                max_tickets = df_staff['Total Tickets'].max()
-                min_tickets = df_staff['Total Tickets'].min()
-                imbalance = ((max_tickets - min_tickets) / min_tickets) * 100
-                
-                if imbalance > 30:
-                    st.warning(f"⚠️ Workload imbalance detected: {imbalance:.0f}% difference between highest and lowest workload")
-                    st.write("**Recommendation:** Redistribute tickets to balance workload")
-                else:
-                    st.success("✅ Workload is relatively balanced across staff")
-                    
-            else:
-                st.info("No tickets found in database")
-                
-        except Exception as e:
-            st.error(f"Error loading staff analytics: {str(e)}")
-    
-    # TAB 2: STATUS ANALYSIS
+
+        # Per staff metrics (volume + overdue + avg urgency)
+        staff_summary = (
+            df_t.groupby("assigned_to", dropna=False)
+            .agg(
+                total_tickets=("ticket_id", "count"),
+                overdue_count=("is_overdue", "sum"),
+                avg_urgency=("urgency_score", "mean"),
+            )
+            .reset_index()
+        )
+        staff_summary["overdue_pct"] = (staff_summary["overdue_count"] / staff_summary["total_tickets"]) * 100
+        staff_summary = staff_summary.sort_values("total_tickets", ascending=False)
+
+        # Chart: volume
+        fig1 = px.bar(
+            staff_summary,
+            x="assigned_to",
+            y="total_tickets",
+            title="Ticket Volume by Staff Member",
+            labels={"assigned_to": "Staff", "total_tickets": "Tickets"},
+        )
+        fig1.update_layout(height=380)
+        st.plotly_chart(fig1, use_container_width=True)
+
+        # Chart: overdue %
+        fig2 = px.bar(
+            staff_summary,
+            x="assigned_to",
+            y="overdue_pct",
+            title="Overdue Ticket % by Staff",
+            labels={"assigned_to": "Staff", "overdue_pct": "Overdue (%)"},
+        )
+        fig2.update_layout(height=380)
+        st.plotly_chart(fig2, use_container_width=True)
+
+        st.write("**Performance Summary**")
+        st.dataframe(
+            staff_summary.style.format(
+                {"total_tickets": "{:.0f}", "overdue_count": "{:.0f}", "avg_urgency": "{:.2f}", "overdue_pct": "{:.1f}%"}
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        # Workload imbalance insight (simple ratio-based signal)
+        max_tickets = float(staff_summary["total_tickets"].max())
+        min_tickets = float(staff_summary["total_tickets"].min()) if float(staff_summary["total_tickets"].min()) > 0 else 1.0
+        imbalance = ((max_tickets - min_tickets) / min_tickets) * 100
+
+        if imbalance > 30:
+            st.warning(f"⚠️ Workload imbalance detected (~{imbalance:.0f}% difference). Consider redistribution / round-robin assignment.")
+        else:
+            st.success("✅ Workload looks reasonably balanced under current filters.")
+
+        # Export
+        st.markdown("### Export")
+        download_csv_button(staff_summary, filename="it_ops_staff_summary.csv")
+
+    # TAB 2 - Status analysis
     with tab2:
         st.subheader("Ticket Status Distribution")
-        
-        try:
-            tickets = repo.get_latest_tickets(limit=200)
-            
-            if tickets:
-                # Count by status
-                status_counts = {}
-                for ticket in tickets:
-                    status = ticket.status
-                    status_counts[status] = status_counts.get(status, 0) + 1
-                
-                # Create pie chart
-                fig = go.Figure(data=[go.Pie(
-                    labels=list(status_counts.keys()),
-                    values=list(status_counts.values()),
-                    hole=0.3
-                )])
-                
-                fig.update_layout(
-                    title="Ticket Distribution by Status",
-                    height=450
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Status breakdown table
-                status_df = pd.DataFrame({
-                    'Status': list(status_counts.keys()),
-                    'Count': list(status_counts.values()),
-                    'Percentage': [v/sum(status_counts.values())*100 for v in status_counts.values()]
-                }).sort_values('Count', ascending=False)
-                
-                st.dataframe(
-                    status_df.style.format({
-                        'Count': '{:.0f}',
-                        'Percentage': '{:.1f}%'
-                    }),
-                    use_container_width=True,
-                    hide_index=True
-                )
-                
-                # Bottleneck identification
-                resolved = status_counts.get('Resolved', 0)
-                total = sum(status_counts.values())
-                resolution_rate = (resolved / total) * 100
-                
-                st.metric("Resolution Rate", f"{resolution_rate:.1f}%")
-                
-                if resolution_rate < 50:
-                    st.warning("⚠️ Resolution rate below 50% - potential bottleneck in workflow")
-                    
-            else:
-                st.info("No tickets found")
-                
-        except Exception as e:
-            st.error(f"Error loading status analytics: {str(e)}")
-    
-    # TAB 3: RESOLUTION TIMES
+
+        status_counts = df_t["status"].value_counts().reset_index()
+        status_counts.columns = ["status", "count"]
+        status_counts["percentage"] = (status_counts["count"] / status_counts["count"].sum()) * 100
+
+        pie = go.Figure(
+            data=[go.Pie(labels=status_counts["status"], values=status_counts["count"], hole=0.35)]
+        )
+        pie.update_layout(title="Ticket Distribution by Status", height=420)
+        st.plotly_chart(pie, use_container_width=True)
+
+        st.write("**Status Breakdown**")
+        st.dataframe(
+            status_counts.style.format({"count": "{:.0f}", "percentage": "{:.1f}%"}),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        # Backlog rate: everything not resolved
+        resolved_count = int((df_t["status"].str.lower() == "resolved").sum())
+        total = len(df_t)
+        backlog = total - resolved_count
+        backlog_rate = (backlog / total) * 100 if total > 0 else 0.0
+
+        col1, col2 = st.columns(2)
+        col1.metric("Resolved tickets", resolved_count)
+        col2.metric("Backlog rate", f"{backlog_rate:.1f}%")
+
+        if backlog_rate > 60:
+            st.warning("⚠️ High backlog: many tickets are not resolved. Investigate bottlenecks (Waiting for User / In Progress).")
+
+        # Export
+        st.markdown("### Export")
+        download_csv_button(status_counts, filename="it_ops_status_breakdown.csv")
+
+    # TAB 3 - SLA / Overdue risk
     with tab3:
-        st.subheader("Resolution Time Analysis")
-        
-        try:
-            tickets = repo.get_latest_tickets(limit=200)
-            
-            if tickets:
-                # Priority distribution
-                priority_counts = {}
-                urgency_by_priority = {}
-                
-                for ticket in tickets:
-                    priority = ticket.priority
-                    priority_counts[priority] = priority_counts.get(priority, 0) + 1
-                    
-                    if priority not in urgency_by_priority:
-                        urgency_by_priority[priority] = []
-                    urgency_by_priority[priority].append(ticket.urgency_score())
-                
-                # Chart: Priority distribution
-                fig = px.bar(
-                    x=list(priority_counts.keys()),
-                    y=list(priority_counts.values()),
-                    title='Ticket Volume by Priority',
-                    labels={'x': 'Priority', 'y': 'Count'},
-                    color=list(priority_counts.values()),
-                    color_continuous_scale='RdYlGn_r'
-                )
-                
-                fig.update_layout(height=400, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # SLA information
-                st.write("**SLA Targets by Priority:**")
-                
-                sla_data = []
-                for priority in ['Critical', 'High', 'Medium', 'Low']:
-                    # Create dummy ticket to get SLA
-                    from app.models.it_ticket import ITTicket
-                    dummy = ITTicket(
-                        ticket_id=0,
-                        created_at="2024-01-01",
-                        priority=priority,
-                        status="Open",
-                        assigned_to="",
-                        title="",
-                        description=""
-                    )
-                    
-                    sla_hours = dummy.get_sla_hours()
-                    count = priority_counts.get(priority, 0)
-                    
-                    sla_data.append({
-                        'Priority': priority,
-                        'SLA Target': f"{sla_hours} hours",
-                        'Current Count': count
-                    })
-                
-                st.dataframe(pd.DataFrame(sla_data), use_container_width=True, hide_index=True)
-                
-                # Overdue analysis
-                overdue_count = sum(1 for t in tickets if t.is_overdue())
-                overdue_rate = (overdue_count / len(tickets)) * 100
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Overdue Tickets", overdue_count)
-                with col2:
-                    st.metric("Overdue Rate", f"{overdue_rate:.1f}%")
-                
-                if overdue_rate > 20:
-                    st.error("🚨 Over 20% of tickets are overdue - immediate action required")
-                    st.write("**Recommendations:**")
-                    st.write("1. Implement automated escalation for tickets approaching SLA limits")
-                    st.write("2. Review and rebalance staff workload")
-                    st.write("3. Consider adding temporary resources during peak periods")
-                elif overdue_rate > 10:
-                    st.warning("⚠️ Overdue rate above 10% - monitor closely")
-                else:
-                    st.success("✅ Overdue rate within acceptable range")
-                    
-            else:
-                st.info("No tickets found")
-                
-        except Exception as e:
-            st.error(f"Error loading resolution analytics: {str(e)}")
+        st.subheader("SLA / Overdue Risk Indicators")
+
+        overdue_count = int(df_t["is_overdue"].sum())
+        overdue_rate = (overdue_count / len(df_t)) * 100 if len(df_t) > 0 else 0.0
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total tickets (filtered)", len(df_t))
+        col2.metric("Overdue tickets", overdue_count)
+        col3.metric("Overdue rate", f"{overdue_rate:.1f}%")
+
+        # Priority distribution
+        prio_counts = df_t["priority"].value_counts().reset_index()
+        prio_counts.columns = ["priority", "count"]
+
+        fig = px.bar(
+            prio_counts,
+            x="priority",
+            y="count",
+            title="Ticket Volume by Priority",
+            labels={"priority": "Priority", "count": "Count"},
+        )
+        fig.update_layout(height=380)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Interpretation / recommendations (clear, marker-friendly)
+        if overdue_rate > 20:
+            st.error("🚨 Over 20% overdue: immediate action recommended.")
+            st.write("**Recommendations:**")
+            st.write("1. Add escalation rules for tickets approaching SLA limits.")
+            st.write("2. Rebalance staff workload (move high urgency tickets away from overloaded assignees).")
+            st.write("3. Create knowledge base for repeated requests (password reset, VPN, install).")
+        elif overdue_rate > 10:
+            st.warning("⚠️ Overdue rate above 10%: monitor and adjust workload/triage.")
+        else:
+            st.success("✅ Overdue rate is within a reasonable range.")
+
+        # Export
+        st.markdown("### Export")
+        download_csv_button(df_t, filename="it_ops_filtered_tickets.csv", label="⬇️ Download filtered tickets CSV")
+
 
 st.markdown("---")
-st.caption("Week 9 + Week 11 - Analytics with OOP Integration")
+st.caption("Week 9 + Week 11 - Analytics with OOP Integration (Repository + cached reads + export + filters)")
+
